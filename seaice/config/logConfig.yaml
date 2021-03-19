@@ -1,0 +1,48 @@
+loggers: 
+  -
+    id: 0
+    level: debug
+    name: root
+    appenders:
+      -
+        # 0 : StdoutLogAppender
+        # 1 : FileLogAppender
+        type: 0
+        formatter:
+          pattern: '%d{%Y-%m-%d %H:%M:%S}%T%f:%l%T[%p]%T%N%T[%t]%T[%c]%T%m'
+      -
+        type: 1
+        formatter:
+          pattern: '%d{%Y-%m-%d %H:%M:%S}%T%f:%l%T[%p]%T%N%T[%t]%T[%c]%T%m'
+    formatter:
+      pattern: '%d{%Y-%m-%d %H:%M:%S}%T%f:%l%T[%p]%T%N%T[%t]%T[%c]%T%m'
+  -
+    id: 1
+    level: debug
+    name: system
+    appenders:
+      -
+        type: 0
+        formatter:
+          pattern: '%d{%Y-%m-%d %H:%M:%S}%T%f:%l%T[%p]%T%N%T[%t]%T[%c]%T%m'
+      -
+        type: 1
+        formatter:
+          pattern: '%d{%Y-%m-%d %H:%M:%S}%T%f:%l%T[%p]%T%N%T[%t]%T[%c]%T%m'
+    formatter:
+      pattern: '%d{%Y-%m-%d %H:%M:%S}%T%f:%l%T[%p]%T%N%T[%t]%T[%c]%T%m'
+  -
+    id: 1
+    level: debug
+    name: seaice
+    appenders:
+      -
+        type: 0
+        formatter:
+          pattern: '%d{%Y-%m-%d %H:%M:%S}%T%f:%l%T[%p]%T%N%T[%t]%T[%c]%T%m'
+      -
+        type: 1
+        formatter:
+          pattern: '%d{%Y-%m-%d %H:%M:%S}%T%f:%l%T[%p]%T%N%T[%t]%T[%c]%T%m'
+    formatter:
+      pattern: '%d{%Y-%m-%d %H:%M:%S}%T%f:%l%T[%p]%T%N%T[%t]%T[%c]%T%m'

@@ -1,0 +1,76 @@
+@startuml
+scale 1.5
+skinparam monochrome true
+class Address {
+    +getFamily()
+    +toString()
+    {abstract} +getAddr()
+    {abstract} +getAddrLen()
+    {abstract} +insert(ostream& os)
+    {abstract} +operator<(const Address&)
+    {abstract} +operator==(const Address&)
+    {abstract} +operator!=(const Address&)
+}
+
+class IPAddress {
+    {abstract} +broadcastAddress(uint32_t)
+    {abstract} +networkAddress(uint32_t)
+    {abstract} +subnetMask(uint32_t)
+    {abstract} +getPort()
+    {abstract} +setPort(uint32_t)
+}
+
+class IPv4Address {
+    +IPv4Address(uint32_t, uint32_t)
+    +getAddr()
+    +getAddrLen()
+    +insert(ostream& os)
+    +broadcastAddress(uint32_t)
+    +networkAddress(uint32_t)
+    +subnetMask(uint32_t)
+    +getPort()
+    +setPort(uint32_t)
+
+    -sockaddr_in m_addr
+}
+
+class IPv6Address {
+    +IPv6Address(uint32_t, uint32_t)
+    +getAddr()
+    +getAddrLen()
+    +insert(ostream& os)
+    +broadcastAddress(uint32_t)
+    +networkAddress(uint32_t)
+    +subnetMask(uint32_t)
+    +getPort()
+    +setPort(uint32_t)
+
+    -sockaddr_in6 m_addr
+}
+
+class UnixAddress {
+    +UnixAddress(const string&)
+    +getAddr()
+    +getAddrLen()
+    +insert(ostream& os)
+
+    -sockaddr_un m_addr
+    -socklen_t m_length
+}
+
+class UnknowAddress {
+    +UnixAddress()
+    +getAddr()
+    +getAddrLen()
+    +insert(ostream& os)
+
+    -sockaddr m_addr
+}
+
+Address <|-- IPAddress
+IPAddress <|-- IPv4Address
+IPAddress <|-- IPv6Address
+Address <|-- UnixAddress
+Address <|-- UnknowAddress
+
+@enduml

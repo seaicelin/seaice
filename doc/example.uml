@@ -1,0 +1,34 @@
+@startuml
+scale 1.5
+skinparam monochrome true
+class Document {
+    +Save()
+    +Open()
+    +Close()
+    {abstract} +DoRead()
+}
+
+class MyDocument {
+    +DoRead()
+}
+
+class Apllication {
+    +AddDocument()
+    +OpenDocument()
+    {abstract} +DoCreateDocument()
+    {abstract} +CanOpenDocument()
+    {abstract} +AbountToOpenDocument()
+}
+
+class MyApplication {
+    +DoCreateDocument()
+    +CanOpenDocument()
+    +AbountToOpenDocument()
+}
+
+Document <|-- MyDocument
+Apllication <|-- MyApplication
+MyDocument <.. MyApplication
+Document <--o "docs" Apllication
+
+@enduml
