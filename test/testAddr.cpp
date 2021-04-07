@@ -3,6 +3,7 @@
 #include "../seaice/log.h"
 #include "../seaice/fiber.h"
 #include "../seaice/iomanager.h"
+#include "../seaice/address.h"
 #include <unistd.h>
 #include <ucontext.h>
 #include <fcntl.h>
@@ -46,7 +47,7 @@ void test_getaddrinfo()
     char ipstr[16];
     bzero(&hint, sizeof(hint));
     hint.ai_family = AF_INET;
-    hint.ai_socktype = SOCK_STREAM;
+    hint.ai_socktype = 0;
 
     ret = getaddrinfo("www.baidu.com", NULL, &hint, &res);
     if(ret != 0) {
@@ -64,34 +65,33 @@ void test_getifaddrs() {
     struct ifaddrs *ifaddr, *ifa;
     int family, s, n;
     char host[NI_MAXHOST];
+    char ipstr[128];
+    char netmask[128];
 
     if(getifaddrs(&ifaddr) == -1) {
         SEAICE_LOG_ERROR(logger) << "getifaddrs failed";
     }
 
-    for(ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
+    for(ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
         if(ifa->ifa_addr == NULL) {
             continue;
         }
         family = ifa->ifa_addr->sa_family;
-        SEAICE_LOG_DEBUG(logger) << "name = " << ifa->ifa_name <<
-                " family = " << family;
-        if(family == AF_INET || family == AF_INET6) {
-            s = getnameinfo(ifa->ifa_addr,
-                (family == AF_INET)? sizeof(struct sockaddr_in) :
-                                     sizeof(struct sockaddr_in6),
-                host, NI_MAXHOST,
-                NULL, 0, NI_NUMERICHOST);
-            if(s!=0) {
-                SEAICE_LOG_ERROR(logger) << "getnameinfo failed";
-            }
-        } else if (family == AF_PACKET && ifa->ifa_data != NULL) {
-                   struct rtnl_link_stats *stats = (rtnl_link_stats *)ifa->ifa_data;
-
-                   printf("\t\ttx_packets = %10u; rx_packets = %10u\n"
-                          "\t\ttx_bytes   = %10u; rx_bytes   = %10u\n",
-                          stats->tx_packets, stats->rx_packets,
-                          stats->tx_bytes, stats->rx_bytes);
+        SEAICE_LOG_DEBUG(logger) << "name = " << ifa->ifa_name;
+        if(family == AF_INET) {
+            inet_ntop(AF_INET, &(((struct sockaddr_in *)(ifa->ifa_addr))->sin_addr), 
+                        ipstr, 16);
+            inet_ntop(AF_INET, &(((struct sockaddr_in *)(ifa->ifa_netmask))->sin_addr), 
+                        netmask, 16);
+            SEAICE_LOG_DEBUG(logger) << "family ip4= " << family;
+            SEAICE_LOG_DEBUG(logger) << ipstr << " : " << netmask;
+        } else if (family == AF_INET6) {
+            inet_ntop(AF_INET6, &(((struct sockaddr_in *)(ifa->ifa_addr))->sin_addr), 
+                        ipstr, 16);
+            inet_ntop(AF_INET6, &(((struct sockaddr_in *)(ifa->ifa_netmask))->sin_addr), 
+                        netmask, 16);
+            SEAICE_LOG_DEBUG(logger) << "family ip6 = " << family;
+            SEAICE_LOG_DEBUG(logger) << ipstr << " : " << netmask;
         }
     }
     freeifaddrs(ifaddr);
@@ -129,11 +129,52 @@ void test_enable_if(){
     SEAICE_LOG_DEBUG(logger) << is233<1,232>() <<" , "<< is233<1,1>();
 }
 
+void test_iface() {
+    std::multimap<std::string, std::pair<seaice::Address::ptr, uint32_t> >results;
+    bool v = seaice::Address::GetInterfaceAddress(results);
+    if(!v) {
+        SEAICE_LOG_DEBUG(logger)<< "get interface failed";
+        return;
+    }
+    for(auto& i : results) {
+        SEAICE_LOG_DEBUG(logger) << i.first << " - " << i.second.first->toString() <<
+            " - " << i.second.second;
+    }
+}
+
+void test_ipv4() {
+    auto addr = seaice::IPAddress::Create("127.0.0.1");
+    if(addr) {
+        SEAICE_LOG_DEBUG(logger) << addr->toString();
+    }
+}
+
+void test() {
+    std::vector<seaice::Address::ptr> addrs;
+    bool v = seaice::Address::Lookup(addrs, "www.baidu.com");
+    if(!v) {
+        SEAICE_LOG_ERROR(logger) << "lookup failed";
+    }
+    for(size_t i = 0; i < addrs.size(); ++i) {
+        SEAICE_LOG_DEBUG(logger) << i << " - " << addrs[i]->toString();
+    }
+
+    seaice::Address::ptr val = seaice::Address::LookupAny("www.baidu.com");
+    seaice::IPAddress::ptr addr = std::dynamic_pointer_cast<seaice::IPAddress>(val);
+    SEAICE_LOG_DEBUG(logger) << addr->toString();
+    SEAICE_LOG_DEBUG(logger) << addr->networkAddress(15)->toString();
+    //SEAICE_LOG_DEBUG(logger) << addr->subnetMask()->toString();
+}
+
 int main() {
 
     test_getaddrinfo();
-    test_getifaddrs();
-    test_endian();
-    test_enable_if();
+    //test_getifaddrs();
+    //test_endian();
+    //test_enable_if();
+
+    test_ipv4();
+    test_iface();
+    test();
     return 0;
 }

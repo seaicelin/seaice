@@ -1,0 +1,53 @@
+代码风格规范：
+1.
+loop_(loop_)  自动补全导致初始化错误error
+==》
+mLoop(loop)
+
+2.
+构造函数的初始化列表顺序没有严格按照声明的顺序来，
+导致初始化错误。
+
+3. 
+POLLOUT, POLLRDHUP 事件顺序
+hup事件应该放在 pollout 前面判断
+
+4. stdint.h是c99中引进的一个标准C库的头文件。
+/* 数据类型可以跨平台移植，字节都一样，只要支持C99编译器都可以 */
+int32_t num = 123;
+
+5. 操作符重载 和 inline 函数学习
+https://www.cnblogs.com/lqerio/p/13485191.html
+
+6. std::pair 如何比较自定义类对象
+https://www.cnblogs.com/bwzdxl/p/13385904.html
+当关联容器(std::map/std::set)中存放自定义类型时，并没有重载operator==，那么它是如何判定两个元素相等的呢？
+cppreference上的解释是"In imprecise terms, two objects a and b are considered equivalent if neither compares less than the other: !comp(a, b) && !comp(b, a)."。
+ 这就解释了为什么我们只重载自定义类型的operator<，就实现了排序加判等。
+ 关联容器的find/count/lower_bound/upper_bound方法都会用到判等。
+
+7. 函数第二个参数是类对象，传递的是整形参数，结果没有报错
+
+Timestamp 只有一个整形成员变量
+
+TimerId TimerQueue::addTimer(Callback cb, Timestamp timestamp, int interval)
+
+TimerId TimerQueue::addTimer(cb, 5,  5)  --》 pass, 居然没有报错
+
+8. 函数声明的时候后面加const 
+
+Timestamp TimerQueue::getTimestampToTimerfd(const Timestamp& timestamp)
+{
+    timestamp.toString();//报错，不是 const 成员函数
+}
+加了const的成员函数可以被非const对象和const对象调用，但不加const的成员函数只能被非const对象调用
+非静态成员函数后面加const，表示成员函数隐含传入的this指针为const指针，决定了在该成员函数中，
+任意修改它所在的类的成员的操作都是不允许的（因为隐含了对this指针的const引用）；
+唯一的例外是对于mutable修饰的成员。
+
+9. timerfd 的回调到底会不会引起线程问题？卡在这个问题很久
+一直在考虑这个，他最终还是回到 EventLoop 的线程调用
+只要在同个线程里面调用，那就没有竟态问题，所以单个线程里面的
+调用，不需要加锁。
+其他线程调用的话 通过 runInLoop->queueInLoop 返回本线程调用
+避免了用锁

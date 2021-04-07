@@ -1,0 +1,54 @@
+//下面代码没法工作
+EventLoop* EventLoopThread::startLoop()
+{
+	cout<<"start loop "<<endl;
+	assert(mThread.isStart() == false);
+	mThread.start();
+	{
+		MutexLockGuard lock(mMutex); //用的是 EventLoopThread 的 mutexlock
+		while(mLoop == NULL)
+		{
+			cout<<"wait"<<endl;
+			mCond.wait(); //用的是拷贝了的 mutexlock， 和上面不是同一个了
+		}
+	}
+	return mLoop;
+}
+
+void EventLoopThread::threadFunc()
+{
+	cout<<"threadFunc" <<endl;
+	EventLoop loop;
+	{
+		MutexLockGuard lock(mMutex);//用的是 EventLoopThread 的 mutexlock, 所以进不来了
+		mLoop = &loop;
+		cout<<"notify"<<endl;
+		mCond.notify();  
+	}
+	loop.loop();
+	MutexLockGuard lock(mMutex);
+	mLoop = NULL;
+}
+
+因为
+Condition::Condition(MutexLock mutex)
+	: mMutex(mutex)
+{
+	mMutex = mutex;
+	int ret = pthread_cond_init(&mCond, NULL);
+	assert(ret == 0);
+}
+
+Mutex 传进来后复制了而一份，导致
+MutexLockGuard lock(mMutex); 和 Condition 的 MutexLock 不是同一个
+
+Condition::Condition(MutexLock& mutex)
+	: mMutex(mutex)
+{
+	//mMutex = mutex;
+	int ret = pthread_cond_init(&mCond, NULL);
+	assert(ret == 0);
+}
+
+修改后可以工作
+同时，把 MutexLock 继承 noncopyable 类，禁止拷贝和赋值

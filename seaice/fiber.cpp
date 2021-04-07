@@ -1,4 +1,5 @@
 #include <atomic>
+#include <sstream>
 #include <stdint.h>
 #include "macro.h"
 #include "thread.h"
@@ -104,6 +105,42 @@ void Fiber::reset(std::function<void()> cb) {
     m_state = INIT;
 }
 
+const std::string Fiber::toString() const {
+    std::stringstream os;
+    os  << "[fiber id = " << m_id << " state = " <<
+        toStateString(m_state) << " - " << m_state << "]";
+    return os.str();
+}
+
+const std::string Fiber::toStateString(State state) const{
+#define XX(name) #name
+    std::string ret = "UNKNOW";
+    switch(state)
+    {
+        case INIT : 
+            ret = XX(INIT);
+            break;
+        case READY : 
+            ret = XX(READY);
+            break;
+        case EXEC : 
+            ret = XX(EXEC);
+            break;
+        case HOLD : 
+            ret = XX(HOLD);
+            break;
+        case TERM : 
+            ret = XX(TERM);
+            break;
+        case EXECPT : 
+            ret = XX(EXECPT);
+            break;
+        default: break;
+    }
+#undef XX
+    return ret;
+}
+
 void Fiber::run() {
     Fiber::ptr cur = getThis();
     Fiber::ptr main_fiber = Fiber::getMainFiber();
@@ -128,6 +165,7 @@ void Fiber::run() {
             << seaice::utils::print_backtrace();
     }
     cur.reset();
+    SEAICE_LOG_ERROR(logger) << " fiber run cur reset";
 
     //这里重新获取主协程，可能执行到这里已经
     //切到另一个线程执行了。

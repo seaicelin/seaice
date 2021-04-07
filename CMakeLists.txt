@@ -24,6 +24,8 @@ set(CMAKE_CXX_FLAGS "-std=c++11 -pthread -rdynamic -lrt -Wl,--no-as-needed -ldl"
 
 
 set(SEAICE_SRC  
+                seaice/address.cpp
+                seaice/bytearray.cpp
                 seaice/config.cpp
                 seaice/fd_manager.cpp
                 seaice/fiber.cpp
@@ -32,6 +34,7 @@ set(SEAICE_SRC
                 seaice/log.cpp
                 seaice/mutex.cpp
                 seaice/scheduler.cpp
+                seaice/socket.cpp
                 seaice/thread.cpp
                 seaice/timer.cpp
                 seaice/utils.cpp)
@@ -68,18 +71,25 @@ target_link_libraries(testIOM /usr/local/lib/libyaml-cpp.so)
 #add_executable(test ${TESTSRC} ${SEAICE_SRC})
 #target_link_libraries(test /usr/local/lib/libyaml-cpp.so)
 
-set(TESTSRC  test/testHOOK.cpp)
-add_executable(testHOOK ${TESTSRC} ${SEAICE_SRC})
-target_link_libraries(testHOOK /usr/local/lib/libyaml-cpp.so)
+#set(TESTSRC  test/testHOOK.cpp)
+#add_executable(testHOOK ${TESTSRC} ${SEAICE_SRC})
+#target_link_libraries(testHOOK /usr/local/lib/libyaml-cpp.so)
 
-set(TESTSRC  test/test_forward.cpp)
-add_executable(test_forward ${TESTSRC} ${SEAICE_SRC})
-target_link_libraries(test_forward /usr/local/lib/libyaml-cpp.so)
+#set(TESTSRC  test/test_forward.cpp)
+#add_executable(test_forward ${TESTSRC} ${SEAICE_SRC})
+#target_link_libraries(test_forward /usr/local/lib/libyaml-cpp.so)
 
 set(TESTSRC  test/testAddr.cpp)
 add_executable(testAddr ${TESTSRC} ${SEAICE_SRC})
 target_link_libraries(testAddr /usr/local/lib/libyaml-cpp.so)
 
+#set(TESTSRC  test/testSocket.cpp)
+#add_executable(testSocket ${TESTSRC} ${SEAICE_SRC})
+#target_link_libraries(testSocket /usr/local/lib/libyaml-cpp.so)
+
+set(TESTSRC  test/test_ByteArray.cpp)
+add_executable(test_ByteArray ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_ByteArray /usr/local/lib/libyaml-cpp.so)
 
 # 指定编译器
 #set(cmake_c_flags_debug "-g -Wall)

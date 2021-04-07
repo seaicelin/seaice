@@ -175,7 +175,7 @@ public:
     typedef ReadScopedLockImpl<RWMutex> ReadLock;
 
     RWMutex() {
-        pthread_rwlock_init(&m_rwLock, nullptr);
+        pthread_rwlock_init(&m_rwLock, NULL);
     }
     ~RWMutex() {
         pthread_rwlock_destroy(&m_rwLock);

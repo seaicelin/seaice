@@ -14,6 +14,7 @@ static Logger::ptr logger = SEAICE_LOGGER("system");
 
 void IOManager::FdContext::triggerEvent(int event) {
     //SEAICE_LOG_DEBUG(logger) << "triggerEvent event = " << event;
+    events &= ~event;
     if(event & READ) {
         SEAICE_ASSERT(read.sch);
         if(read.cb) {
@@ -102,7 +103,7 @@ int IOManager::addEvent(int fd, int event, std::function<void()> cb) {
     int curEvents = ptr->events;
     if(event & READ) {
         //ptr->read.cb.swap(cb);
-        ptr->write.fiber = Fiber::getThis();
+        ptr->read.fiber = Fiber::getThis();
         ptr->read.cb = cb;
         ptr->read.sch = getThis();
     }
@@ -116,7 +117,6 @@ int IOManager::addEvent(int fd, int event, std::function<void()> cb) {
     epoll_event epevent;
     memset(&epevent, 0, sizeof(epoll_event));
     epevent.events = (ptr->events | EPOLLET);
-    epevent.data.fd = fd;
     epevent.data.ptr = ptr;
     int rt = epoll_ctl(m_epollfds, op, fd, &epevent);
     if(rt != 0) {
@@ -125,6 +125,8 @@ int IOManager::addEvent(int fd, int event, std::function<void()> cb) {
         SEAICE_ASSERT(false);
         return -1;
     }
+    SEAICE_LOG_DEBUG(logger) << "add event = " <<
+        event << " fd = " << fd;
     return 0;
 }
 
@@ -163,7 +165,6 @@ void IOManager::delEvent(int fd, int event){
     epoll_event epevent;
     memset(&epevent, 0, sizeof(epoll_event));
     epevent.events = (ptr->events | EPOLLET);
-    epevent.data.fd = fd;
     epevent.data.ptr = ptr;
     int rt = epoll_ctl(m_epollfds, op, fd, &epevent);
     if(rt != 0) {
@@ -173,17 +174,17 @@ void IOManager::delEvent(int fd, int event){
     }
 }
 
-void IOManager::cancelEvent(int fd, int event) {
+bool IOManager::cancelEvent(int fd, int event) {
     if(event == NONE || fd < 0) {
         SEAICE_LOG_DEBUG(logger) <<"cancelEvent fd invalid " <<
             "or event is NONE";
-        return;
+        return false;
     }
 
     RWMutexType::ReadLock lock(m_mutex);
     if((int)mFdCtxs.size() < fd) {
         SEAICE_LOG_DEBUG(logger) <<"cancelEvent fd not exist";
-        return;
+        return false;
     }
     FdContext* ptr = mFdCtxs[fd];
     lock.unlock();
@@ -193,7 +194,7 @@ void IOManager::cancelEvent(int fd, int event) {
     MutexType::Lock lock2(ptr->mutex);
     int curEvents = ptr->events;
     if((curEvents & event) == NONE) {
-        return;
+        return false;
     }
 
     ptr->events = (curEvents & (~event));
@@ -201,13 +202,13 @@ void IOManager::cancelEvent(int fd, int event) {
     epoll_event epevent;
     memset(&epevent, 0, sizeof(epoll_event));
     epevent.events = (ptr->events | EPOLLET);
-    epevent.data.fd = fd;
     epevent.data.ptr = ptr;
     int rt = epoll_ctl(m_epollfds, op, fd, &epevent);
     if(rt != 0) {
         SEAICE_LOG_ERROR(logger) << "rt = " << rt
             << " errno = " << strerror(errno);
         SEAICE_ASSERT(false);
+        return false;
     }
 
     if(event & READ) {
@@ -218,18 +219,19 @@ void IOManager::cancelEvent(int fd, int event) {
         ptr->triggerEvent(WRITE);
         ptr->write.reset();
     }
+    return true;
 }
 
-void IOManager::cancelAllEvent(int fd) {
+bool IOManager::cancelAllEvent(int fd) {
     if(fd < 0) {
         SEAICE_LOG_DEBUG(logger) <<"cancelAllEvent fd invalid ";
-        return;
+        return false;
     }
 
     RWMutexType::ReadLock lock(m_mutex);
     if((int)mFdCtxs.size() < fd) {
         SEAICE_LOG_DEBUG(logger) <<"cancelAllEvent fd not exist";
-        return;
+        return false;
     }
     FdContext* ptr = mFdCtxs[fd];
     lock.unlock();
@@ -239,7 +241,7 @@ void IOManager::cancelAllEvent(int fd) {
     MutexType::Lock lock2(ptr->mutex);
     int curEvents = ptr->events;
     if(curEvents == NONE) {
-        return;
+        return false;
     }
 
     ptr->events = NONE;
@@ -247,13 +249,13 @@ void IOManager::cancelAllEvent(int fd) {
     epoll_event epevent;
     memset(&epevent, 0, sizeof(epoll_event));
     epevent.events = NONE;
-    epevent.data.fd = fd;
     epevent.data.ptr = ptr;
     int rt = epoll_ctl(m_epollfds, op, fd, &epevent);
     if(rt != 0) {
         SEAICE_LOG_ERROR(logger) << "rt = " << rt
             << " errno = " << strerror(errno);
         SEAICE_ASSERT(false);
+        return false;
     }
 
     if(curEvents & READ) {
@@ -264,6 +266,7 @@ void IOManager::cancelAllEvent(int fd) {
         ptr->triggerEvent(WRITE);
         ptr->write.reset();
     }
+    return true;
 }
 
 void IOManager::resizeFdContext(int fd) {
@@ -290,8 +293,8 @@ void IOManager::idleFun() {
     std::shared_ptr<epoll_event> smart_events(events, [=](epoll_event* ptr){
         delete[] ptr;
     });
-
     while(!isStoping()) {
+        SEAICE_LOG_DEBUG(logger) << "idleFun start";
         int rt = 0;
         do{
             const static int TIMEOUT = 5000;//ms
@@ -305,43 +308,54 @@ void IOManager::idleFun() {
 
         SEAICE_LOG_DEBUG(logger) << "epoll wait rt = " << rt;
 
-        if(rt == 0) {
-            std::list<std::function<void()> > callbacks;
-            listTimeroutCallback(callbacks);
-            for(auto it : callbacks) {
-               schedule(it);
-            }
+        std::list<std::function<void()> > callbacks;
+        listTimeroutCallback(callbacks);
+        for(auto it : callbacks) {
+           schedule(it);
         }
 
         for(int i = 0; i < rt; i++) {
-            epoll_event& event = events[i];
-            if(event.data.fd == m_tickFds[0]) {
+            if(events[i].data.fd == m_tickFds[0]) {
                 uint8_t dummy[256];
                 while(read(m_tickFds[0], dummy, sizeof(dummy)) > 0);
                 SEAICE_LOG_DEBUG(logger) << "read tick fd";
                 continue;
             }
-            FdContext* fd_ctx = (FdContext*)event.data.ptr;
-            MutexType::Lock lock(fd_ctx->mutex);
+
+            epoll_event& epevent = events[i];
             int real_event = NONE;
-            if(event.events & (EPOLLERR | EPOLLHUP)) {
-                real_event = ((READ | WRITE) & fd_ctx->events);
+            if(events[i].events & (EPOLLERR | EPOLLHUP)) {
+                real_event = (READ | WRITE);
             }
-            if(event.events & fd_ctx->events & EPOLLIN) {
+            if(events[i].events & EPOLLIN) {
                 real_event |= READ;
             }
-            if(event.events & fd_ctx->events & EPOLLOUT) {
+            if(events[i].events & EPOLLOUT) {
                 real_event |= WRITE;
             }
 
-            SEAICE_LOG_DEBUG(logger) << "real event = " << real_event
-                <<" fd events = " << fd_ctx->events << " epoll event = "
-                << event.events;
-
-            fd_ctx->triggerEvent(real_event);
+            FdContext* fd_ctx = (FdContext*)events[i].data.ptr;
+            MutexType::Lock lock(fd_ctx->mutex);
+            real_event &= fd_ctx->events;
+            int left_event = (fd_ctx->events & (~real_event));
+            int op = left_event ? EPOLL_CTL_MOD : EPOLL_CTL_DEL;
+            epevent.events = (left_event | EPOLLET);
+            epevent.data.ptr = fd_ctx;
+            int rt = epoll_ctl(m_epollfds, op, fd_ctx->fd, &epevent);
+            if(rt != 0) {
+                SEAICE_LOG_DEBUG(logger) << "real event = " << real_event
+                    <<" fd events = " << fd_ctx->events << " epoll event = "
+                    << events[i].events <<" left event = " << left_event;
+            }
+            if(real_event & READ) {
+                fd_ctx->triggerEvent(READ);
+            }
+            if(real_event & WRITE) {
+                fd_ctx->triggerEvent(WRITE);
+            }
             lock.unlock();
         }
-
+        SEAICE_LOG_DEBUG(logger) << "idleFun end yieldToReady";
         Fiber::yieldToReady();
     }
 }

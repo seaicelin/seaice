@@ -1,0 +1,144 @@
+Socket 地址结构相关结构体
+在IPV4中，Socket有三种地址相关的结构体：struct sockaddr 、struct sockaddr_in、struct in_addr
+
+struct sockaddr {
+sa_family_t sa_family;
+char sa_data[14];
+};
+
+sa_family：地址族，2字节，它的值包括三种：AF_INET，AF_INET6和AF_UNSPEC。
+
+sa_data：如果指定AF_INET，那么函数就不能返回任何IPV6相关的地址信息；如果仅指定了AF_INET6，则就不能返回任何IPV4地址信息。AF_UNSPEC则意味着函数返回的是适用于指定主机名和服务名且适合任何协议族的地址。如果某个主机既有AAAA记录(IPV6)地址，同时又有A记录(IPV4)地址，那么AAAA记录将作为sockaddr_in6结构返回，而A记录则作为sockaddr_in结构返回。
+
+struct sockaddr_in {
+　　short int sin_family; /* Address family */
+　　unsigned short int sin_port; /* Port number */
+　　struct in_addr sin_addr; /* Internet address */
+　　unsigned char sin_zero[8]; /* Same size as struct sockaddr */
+　　};
+
+
+sin_family：指代协议族，在IPV4中只能是AF_INET。
+
+sin_port：存储端口号（使用网络字节顺序）。
+
+sin_addr：存储IP地址，使用in_addr这个数据结构。
+
+sin_zero：是为了让sockaddr与sockaddr_in两个数据结构保持大小相同而保留的空字节。
+
+
+struct in_addr{
+	in_addr_t s_addr;
+}
+
+in_addr_t 是用于存储IPV4地址，为32位二进制网络字节序。
+可以使用in_addr_t inet_addr(const char* strptr);将点分十进制字符串转换为32位二进制网络字节序的IPV4地址。
+相反函数为char*inet_ntoa(struct in_addr in);
+
+但因为IPV4的地址长度不满足于IPV6，于是又引入了几个IPV6相关的结构体：
+struct sockaddr_in6、struct in6_addr 、struct sockaddr_storage
+
+struct sockaddr_in6 {
+    sa_family_t sin6_family;    /* AF_INET6 */
+    in_port_t sin6_port;        /* Transport layer port # */
+    uint32_t sin6_flowinfo;     /* IPv6 flow information */
+    struct in6_addr sin6_addr;  /* IPv6 address */
+    uint32_t sin6_scope_id;     /* IPv6 scope-id */
+};
+
+和IPV4的struct sockaddr_in类似，其中不一样的就是IP地址使用的是struct in6_addr表示。
+
+struct in6_addr {
+    union {
+        uint8_t u6_addr8[16];
+        uint16_t u6_addr16[8];
+        uint32_t u6_addr32[4];
+    } in6_u;
+
+    #define s6_addr                 in6_u.u6_addr8
+    #define s6_addr16               in6_u.u6_addr16
+    #define s6_addr32               in6_u.u6_addr32
+};
+
+表示IPV6地址，union中定义了三种方式，分别以8进制、16进制、32进制网络字节序表示。
+使用inet_pton()和inet_ntop()函数实现字符串及网络字节序序表示的IP地址的转换
+
+int inet_pton(int af, const char *src, void *dst);
+1
+inet_pton 是inet_addr的扩展，这个函数转换字符串到网络地址，第一个参数af是地址簇，第二个参数src是来源地址，第三个参数 dst接收转换后的数据。
+
+const char *inet_ntop(int af, const void *src, char *dst, socklen_t cnt);
+1
+inet_ntop用于转换网络字节序地址为字符串，第一个参数af是地址簇，第二个参数src是来源地址，第三个参数 dst接收转换后的数据。
+
+inet_pton()和inet_ntop()函数使用IPV4及IPV6
+
+/* Structure large enough to hold any socket address 
+(with the historical exception of AF_UNIX). 128 bytes reserved.  */
+
+#if ULONG_MAX > 0xffffffff
+# define __ss_aligntype __uint64_t
+#else
+# define __ss_aligntype __uint32_t
+#endif
+#define _SS_SIZE        128
+#define _SS_PADSIZE     (_SS_SIZE - (2 * sizeof (__ss_aligntype)))
+
+struct sockaddr_storage
+{
+    sa_family_t ss_family;      /* Address family */
+    __ss_aligntype __ss_align;  /* Force desired alignment.  */
+    char __ss_padding[_SS_PADSIZE];
+};
+
+从上面struct sockaddr的说明，可以看出struct sockaddr本来是想通用IPV6/IPV4协议族的，但实际上并不适用。
+因为sizeof(struct sockaddr) = 16, 而sizeof(struct sockaddr_in6) = 28, 显然struct sockaddr这个通用的数据结构不能满足IPV6，所以出现新的结构体：struct sockaddr_storage，它的大小为128字节，应该能装得下目前所以协议的地址结构了。
+
+很多socket接口使用的都是struct sockaddr，这些接口的使用中，需要将struct sockaddr指针转换为struct sockaddr_storage，便能实现IPV6/IPV4混编。
+
+涉及struct sockaddr的接口:
+
+/*application->kernel*/
+int bind   (int sockfd, struct sockaddr *my_addr, socklen_t addrlen);
+
+int connect(int sockfd, const struct sockaddr *serv_addr, 
+            socklen_t addrlen);
+
+int sendto (int s, const void *msg, size_t len, int flags, 
+            const struct sockaddr *to, socklen_t tolen);
+
+/*kernel->application*/
+int  accept     (int s, struct sockaddr *addr, socklen_t *addrlen);
+
+int  recvfrom   (int s,  void  *buf, size_t len, int flags, 
+                 struct sockaddr *from, socklen_t *fromlen);
+
+int  getpeername(int s, struct sockaddr *name, socklen_t *namelen);
+int  getsockname(int s, struct sockaddr *name, socklen_t *namelen);
+IPV6/IPV4混编示例：
+
+struct sockaddr_storage addr;
+memset(&addr, 0, sizeof(struct sockaddr_storage));
+if (isIPv6 == TRUE)
+{
+    struct sockaddr_in6 *addr_v6 = (struct sockaddr_in6 *)&addr;
+    addr_v6->sin6_family = AF_INET6;
+    addr_v6->sin6_port = 1234;
+    inet_pton(AF_INET6, “2001:3211::1”, &(addr_v6->sin6_addr));
+}
+else
+{
+    struct sockaddr_in *addr_v4 = (struct sockaddr_in *)&addr;
+    addr_v4->sin_family = AF_INET;
+    addr_v4->sin_port = 1234;
+    inet_aton(“192.168.1.228”, &(addr_v4->sin_addr));
+}
+
+sendto(sock, buf, len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr_storage));
+
+18
+总体来说，地址结构体转换关系如下：
+
+————————————————
+版权声明：本文为CSDN博主「wusc'blog」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+原文链接：https://blog.csdn.net/myvest/article/details/100859333

@@ -1,0 +1,23 @@
+@startuml
+scale 1.5
+skinparam monochrome true
+class sockaddr {
+}
+
+class sockaddr_storage{
+}
+
+class sockaddr_in6 {
+}
+
+class in6_addr{}
+
+class sockaddr_in {
+}
+
+class in_addr{
+    
+}
+
+
+@enduml

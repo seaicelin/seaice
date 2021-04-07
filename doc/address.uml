@@ -2,67 +2,81 @@
 scale 1.5
 skinparam monochrome true
 class Address {
-    +getFamily()
-    +toString()
-    {abstract} +getAddr()
-    {abstract} +getAddrLen()
-    {abstract} +insert(ostream& os)
-    {abstract} +operator<(const Address&)
-    {abstract} +operator==(const Address&)
-    {abstract} +operator!=(const Address&)
+    {static} +Address::ptr create(sockaddr*, socklen_t)
+    {static} +bool Lookup(vector&, string host, int family, int type, int protocol)
+    {static} +Address::ptr LookupAny(string host, int family, int type, int protocol)
+    {static} +IPAddress::ptr LookupAnyIPAddress(string host, int family, int type, int protocol)
+    {static} +bool GetInterfaceAddress(multimap<string, pair<address, uint32_t> >, int family)
+    {static} +bool GetInterfaceAddress(vector<pair<address, uint32_t> >, string iface, int family)
+    +int getFamily()
+    +string toString()
+    {abstract} +sockaddr* getAddr()
+    {abstract} +socklen_t getAddrLen()
+    {abstract} +ostream& insert(ostream& os)
+    {abstract} +bool operator<(const Address&)
+    {abstract} +bool operator==(const Address&)
+    {abstract} +bool operator!=(const Address&)
 }
 
 class IPAddress {
-    {abstract} +broadcastAddress(uint32_t)
-    {abstract} +networkAddress(uint32_t)
-    {abstract} +subnetMask(uint32_t)
-    {abstract} +getPort()
-    {abstract} +setPort(uint32_t)
+    {static} +IPAddress::ptr Create(char* address, uint16_t port)
+    {abstract} +IPAddress::ptr broadcastAddress(uint32_t)
+    {abstract} +IPAddress::ptr networkAddress(uint32_t)
+    {abstract} +IPAddress::ptr subnetMask(uint32_t)
+    {abstract} +uint32_t getPort()
+    {abstract} +void setPort(uint32_t)
 }
 
 class IPv4Address {
-    +IPv4Address(uint32_t, uint32_t)
-    +getAddr()
-    +getAddrLen()
-    +insert(ostream& os)
-    +broadcastAddress(uint32_t)
-    +networkAddress(uint32_t)
-    +subnetMask(uint32_t)
-    +getPort()
-    +setPort(uint32_t)
+    {static} +IPv4Address::ptr Create(char* address, uint16_t port)
+    +IPv4Address(sockaddr_in& address)
+    +IPv4Address(uint32_t address, uint32_t port)
+    +sockaddr* getAddr()
+    +socklen_t getAddrLen()
+    +ostream& insert(ostream& os)
+    +IPAddress::ptr broadcastAddress(uint32_t)
+    +IPAddress::ptr networkAddress(uint32_t)
+    +IPAddress::ptr subnetMask(uint32_t)
+    +uint32_t getPort()
+    +void setPort(uint32_t)
 
     -sockaddr_in m_addr
 }
 
 class IPv6Address {
-    +IPv6Address(uint32_t, uint32_t)
-    +getAddr()
-    +getAddrLen()
-    +insert(ostream& os)
-    +broadcastAddress(uint32_t)
-    +networkAddress(uint32_t)
-    +subnetMask(uint32_t)
-    +getPort()
-    +setPort(uint32_t)
+    {static} +IPv6Address::ptr Create(char* address, uint16_t port)
+    +IPv6Address(sockaddr_in6& address)
+    +IPv6Address(uint8_t address[16], uint16_t port)
+    +sockaddr* getAddr()
+    +socklen_t getAddrLen()
+    +ostream& insert(ostream& os)
+    +IPAddress::ptr broadcastAddress(uint32_t)
+    +IPAddress::ptr networkAddress(uint32_t)
+    +IPAddress::ptr subnetMask(uint32_t)
+    +uint32_t getPort()
+    +void setPort(uint32_t)
 
     -sockaddr_in6 m_addr
 }
 
 class UnixAddress {
     +UnixAddress(const string&)
-    +getAddr()
-    +getAddrLen()
-    +insert(ostream& os)
+    +sockaddr* getAddr()
+    +socklen_t getAddrLen()
+    +ostream& insert(ostream& os)
+    +string getPath()
+    +void setAddrLen(uint32_t)
 
     -sockaddr_un m_addr
     -socklen_t m_length
 }
 
 class UnknowAddress {
-    +UnixAddress()
-    +getAddr()
-    +getAddrLen()
-    +insert(ostream& os)
+    +UnknowAddress(int family)
+    +UnknowAddress(sockaddr& addr)
+    +sockaddr* getAddr()
+    +socklen_t getAddrLen()
+    +ostream& insert(ostream& os)
 
     -sockaddr m_addr
 }

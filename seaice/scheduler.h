@@ -11,6 +11,7 @@
 #include "thread.h"
 #include "fiber.h"
 #include "mutex.h"
+#include "utils.h"
 
 namespace seaice {
 
@@ -88,7 +89,8 @@ public:
     bool scheduleNoLock(FiberOrCb fc, int threadId = 1) {
         bool need_tickle = m_fibers.empty();
         FiberAndThread ft(fc, threadId);
-        std::cout << "sheduleNolock" << std::endl;
+        //std::cout << "sheduleNolock" << std::endl;
+        //std::cout << seaice::utils::print_backtrace() << std::endl;
         m_fibers.push_back(ft);
         return need_tickle;
     }

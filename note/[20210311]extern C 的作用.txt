@@ -1,0 +1,24 @@
+https://blog.csdn.net/weiwangchao_/article/details/4681813
+
+1、在cpp文件中调用c文件中实现的函数的时候，需要用extern "C"声明该函数，否则cpp会按名字改编后的函数名去找该函数而找不到。(这是作用）
+
+   c文件中有一函数：
+              void Transfer(int a; char b);
+   cpp文件中必须用extern "C"声明该函数如下才可以实行调用：
+            extern "C" void Transfer(int a; char b);
+
+2、在cpp文件中实现的函数，c文件若要调用，就必须在cpp文件中用extern "C"来声明该函数，否则cpp在编译过程中就会对其进行名字改编，c文件就找不到该函数的原型。(这是作用）
+
+
+  cpp文件中有一函数：
+               void Transfer(int a; char b);
+   但必须用extern "C"来声明后，如下：
+                extern "C" void Transfer(int a; char b);
+   c文件才可以调用void Transfer(int a; char b)函数。
+
+ 
+
+总结：以上讲的是两个方面，1中讲cpp调用c，2中讲c调用cpp。
+————————————————
+版权声明：本文为CSDN博主「工程师WWW」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+原文链接：https://blog.csdn.net/weiwangchao_/article/details/4681813

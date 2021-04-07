@@ -1,0 +1,184 @@
+系列文章
+https://www.cnblogs.com/jkin/p/13825670.html
+C语言中文网
+http://c.biancheng.net/view/8261.html
+gdb调试多进程与多线程
+https://blog.csdn.net/snow_5288/article/details/72982594
+
+命令行：
+1.
+[root@all c]# gdb main -q              #开始调试
+
+2，
+(gdb) b 7                                  # 在第 7 行源代码处打断点
+Breakpoint 1 at 0x400488: file main.c, line 7.
+
+3.
+(gdb) r                                    # 运行程序，遇到断点停止
+
+4.
+(gdb) c                                    # 继续执行程序
+
+5.
+(gdb) p n                                  # 查看代码中变量 n 的值
+
+6. 
+(gdb) b 7 if num>10                       # 如果 num > 10 ,在第7行打断点
+
+7.
+(gdb) condition 1 num==3             <-- 为普通断点添加条件表达式
+(gdb) condition 2 num==5             <-- 为观察断点添加条件表达式
+(gdb) condition 3 num==7             <-- 为捕捉断点添加条件表达式
+
+8.
+GDB ignore命令
+，ignore 命令可以使目标断点暂时失去作用，当断点失效的次数超过指定次数时，断点的功能会自动恢复。
+
+ignore bnum count
+
+9.  tbreak
+tbreak 命令打的断点仅会作用 1 次，即使程序暂停之后，该断点就会自动消失。
+
+10. rbreak
+GDB rbreak 命令 rbreak 命令的作用对i
+11. 
+观察断点
+(gdb) watch cond
+watch 命令的功能是：只有当被监控变量（表达式）的值发生改变，程序才会停止运行
+（1）、rwatch 命令：只要程序中出现读取目标变量（表达式）的值的操作，程序就会停止运行；
+
+（2）、awatch 命令：只要程序中出现读取目标变量（表达式）的值或者改变值的操作，程序就会停止运行。
+
+12. 
+如果我们想查看当前建立的观察点的数量，借助如下指令即可：
+(gdb) info watchpoints
+(gdb) info break
+
+对于 a[10] 这个数组，watch a 表示只要 a 数组中存储的数据发生改变，程序就会停止执行。
+
+13. finish / return 
+finish 命令和 return 命令的区别是，finish 命令会执行函数到正常退出；而 return 命令是立即结束执行当前函数并返回，
+
+14. jump
+(gdb) jump location
+
+15. GDB display命令
+(gdb) display num
+使用 1 次 display 命令，每次程序暂停执行时都会自动打印出目标变量或表达式的值。
+因此，当我们想频繁查看某个变量或表达式的值从而观察它的变化情况时，使用 display 命令可以一劳永逸。
+
+16. 删除断点， clear / delete
+(gdb) clear 2 //2是行数
+(gdb) delete 2 //2是断点编号
+
+17.
+(gdb) set non-stop on                               <-- 开启 non-stop 模式
+
+在 all-stop 模式下，continue、next、step 命令的作用对象并不是当前线程，
+而是所有的线程；但在 non-stop 模式下，continue、next、step 命令只作用于当前线程。 
+在 non-stop 模式下，如果想要 continue 命令作用于所有线程，可以为 continue 命令添加一个 -a 选项，
+即执行 continue -a 或者 c -a 命令，即可实现令所有线程继续执行的目的。
+
+-----------------------------------------------------------------------------------------------
+[root@all c]# gdb main -q
+Reading symbols from /root/c/main...done.
+(gdb) l
+1    #include<stdio.h>
+2    int main(int argc,char* argv[])
+3    {
+4        int num = 1;
+5        while(num<100)
+6        {
+7            num *= 2;
+8        }
+9        printf("num=%d\n",num);
+10        return 0;
+(gdb) 
+11    }
+(gdb) b 4                                             # 使用break打断点
+Breakpoint 1 at 0x4004d3: file main.c, line 4.
+(gdb) r                                               # 执行程序
+Starting program: /root/c/main 
+
+Breakpoint 1, main (argc=1, argv=0x7fffffffe278) at main.c:4
+4        int num = 1;
+(gdb) watch num                                       # 监控程序中 num 变量的值
+Hardware watchpoint 2: num
+(gdb) c                                               #  继续执行，当 num 值发生改变时，程序才停止执行
+Continuing.
+Hardware watchpoint 2: num
+
+Old value = 0
+New value = 2
+main (argc=1, argv=0x7fffffffe278) at main.c:5
+5        while(num<100)
+(gdb) c                                               # num 值发生了改变，继续执行程序
+Continuing.
+Hardware watchpoint 2: num
+
+Old value = 2
+New value = 4
+main (argc=1, argv=0x7fffffffe278) at main.c:5
+5        while(num<100)
+(gdb) 
+----------------------------------------------------------------------------------------------
+
+捕捉断点
+
+(gdb) catch event
+
+(gdb) catch throw int              <-- 指定捕获“throw int”事件
+
+atchpoint 1 (exception thrown), 0x00007ffff7e81762 in __cxa_throw ()
+   from /lib/x86_64-linux-gnu/libstdc++.so.6                          <-- 程序暂停执行
+(gdb) up                                                                                    <-- 通过执行 up 命令，即可返回发生 event 事件的源代码处。回到源码
+
+
+(gdb) catch catch int
+
+==================================================================================
+
+[root@all c]# ls              <-- 显示当前路径下的文件
+a.txt  main.c  main.exe
+[root@all c]# cd ~            <-- 进入 home 目录
+[root@all ~]# gdb -q          <-- 开启 GDB 调试器
+(gdb) cd /root/c              <-- 修改 GDB 调试器的工作目录
+Working directory /root/c.
+(gdb) file main               <-- 指定要调试的目标文件
+Reading symbols from main...
+(gdb) set args a.txt               <-- 指定传递的数据
+(gdb) run                               <-- 运行程序
+Starting program: /root/c/main a.txt
+file open true
+Program exited normally.
+
+
+
+
+=============================================================================================================================================
+调试指令     作用
+
+(gdb) break xxx
+(gdb) b xxx 在源代码指定的某一行设置断点，其中 xxx 用于指定具体打断点的位置。 
+
+(gdb) run
+(gdb) r 执行被调试的程序，其会自动在第一个断点处暂停执行。 
+
+(gdb) continue
+(gdb) c 当程序在某一断点处停止运行后，使用该指令可以继续执行，直至遇到下一个断点或者程序结束。 
+
+(gdb) next
+(gdb) n 令程序一行代码一行代码的执行。 
+
+(gdb) print xxx
+(gdb) p xxx 打印指定变量的值，其中 xxx 指的就是某一变量名。 
+
+(gdb) list
+(gdb) l 显示源程序代码的内容，包括各行代码所在的行号。 
+
+(gdb) quit
+(gdb) q 终止调试。 
+
+finish（fi） 结束当前正在执行的函数，并在跳出函数后暂停程序的执行。 
+
+return（return） 结束当前调用函数并返回指定值，到上一层函数调用处停止程序执行。 

@@ -68,8 +68,8 @@ EPOLLONESHOT:1073741824
 
     int addEvent(int fd, int event, std::function<void()> cb = nullptr);
     void delEvent(int fd, int event);
-    void cancelEvent(int fd, int event);
-    void cancelAllEvent(int fd);
+    bool cancelEvent(int fd, int event);
+    bool cancelAllEvent(int fd);
     void resizeFdContext(int fd);
     void idleFun() override;
     void tick() override;

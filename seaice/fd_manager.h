@@ -51,7 +51,7 @@ private:
 
 class FdManager {
 public:
-    typedef RWMutex MutexType;
+    typedef Mutex MutexType;
     FdManager();
 
     FdCtx::ptr get(int fd, bool auto_create = false);

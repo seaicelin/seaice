@@ -1,0 +1,23 @@
+1. 如何定义可选参数的模板函数？
+//声明
+static void info(const char* format, Args... args);
+
+//定义
+template<typename ...Args>  //...Args
+void IceLog::info(const char* format, Args... args) //Args... args
+{
+	IceLog* pIceLog = &IceLog::instance();
+	pIceLog->addTask([=] () {
+		fprintf(pIceLog->mfp, format, args...);
+		fflush(pIceLog->mfp);
+		printf(format, args...);
+	});
+}
+
+2. 如何传参？
+fprintf(pIceLog->mfp, format, args...);//args....
+printf(format, args...);   //args....
+
+3. 声明和定义分开放 h 文件和 cpp 文件，编译不过？
+声明和定义都放在 cpp 文件，则编译通过。可能和 static 相关
+原因未知

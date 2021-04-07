@@ -1,0 +1,63 @@
+@startuml
+scale 1.5
+skinparam monochrome true
+
+class Socket {
+    {static} +Socket::ptr CreateTCP(Address::ptr address)
+    {static} +Socket::ptr CreateUDP(Address::ptr address)
+    {static} +Socket::ptr CreateTCPSocket()
+    {static} +Socket::ptr CreateTCPSocket6()
+    {static} +Socket::ptr CreateUDPSocket()
+    {static} +Socket::ptr CreateUDPSocket6()
+    {static} +Socket::ptr CreateUinxTCPSocket()
+    {static} +Socket::ptr CreateUinxUDPSocket()
+    +Socket(int family, int type, int protocol)
+    +~Socket()
+    +uint64_t getSendTimerout()
+    +void setSendTimeout(uint64_t v)
+    +uint64_t getRecvTimeout()
+    +void setRecvTimeout(uint64_t v)
+    +bool getOption(int level, int option, void* result, size_t len)
+    +bool setOption(int level, int option, const void* result, size_t len)
+    +Socket::ptr accept()
+    {abstract} +bool bind(const Address::ptr addr)
+    {abstract} +bool connect(const Address::ptr addr, uint64_t timeout_ms = -1)
+    {abstract} +bool listen(int backlog = 1000)
+    {abstract} +bool close()
+    {abstract} +int send(const void* buffer, size_t len, int flags = 0)
+    {abstract} +int send(const iovec* buffers, size_t len, int flags = 0)
+    {abstract} +int sendTo(const void* buffer, size_t len, const Address::ptr to, int flags = 0)
+    {abstract} +int sendTo(const iovec* buffers, size_t len, const Address::ptr to, int flags = 0)
+    {abstract} +int recv(void* buffer, size_t len, int flags = 0)
+    {abstract} +int recv(iovec* buffers, size_t len, int flags = 0)
+    {abstract} +int recvFrom(void* buffer, size_t len, Address::ptr from, int flags = 0)
+    {abstract} +int recvFrom(iovec* buffers, size_t len, Address::ptr from, int flags = 0)
+    +Address::ptr getRemoteAddress()
+    +Address::ptr getLocalAddress()
+    +int getSocket() const
+    +int getFamily() const
+    +int getType() const
+    +int getProtocol() const
+    +bool isConnected() const
+    +bool isValid() const
+    +int getError()
+    {abstract} +std::ostream& dump(std::ostream& os) const
+    {abstract} +std::string toString() const
+    +bool cancelRead()
+    +bool cancelWrite()
+    +bool cancelAll()
+    +bool cancelAccept()
+    #void initSock()
+    #void newSock()
+    {abstract} #bool init(int sock)
+
+    #int m_sock
+    #int m_family
+    #int m_type
+    #int m_protocol
+    #bool m_connected
+    #Address::ptr m_localAddr
+    #Address::ptr m_remoteAddr
+}
+
+@enduml

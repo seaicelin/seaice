@@ -1,0 +1,14 @@
+c++ 很多新特性，可以使用他们编写跨平台的程序。
+
+时间库
+1. chrono , 获取时间，精确度很高，毫秒，纳秒，跨平台
+
+线程的使用
+1. std::tread
+2. std::mutex
+3. lock_gurad<Mutex> lock(mMutex)
+
+sleep的使用
+
+
+

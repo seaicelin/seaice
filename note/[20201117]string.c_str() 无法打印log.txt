@@ -1,0 +1,6 @@
+	IceLog::info("%s %s ip:port = %s:%s", TAG, __func__, mIpStr.c_str(), mPortStr.c_str());
+	
+	之前 mIpStr 是临时变量，而IceLog是另一个线程，传过去的时候，临时变量已经析构，所以无法打印。
+	
+修改
+	把 mIpStr 修改为成员变量，保证内容不会被析构

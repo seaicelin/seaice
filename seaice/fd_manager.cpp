@@ -77,7 +77,8 @@ FdCtx::ptr FdManager::get(int fd, bool auto_create) {
     if(fd == -1) {
         return nullptr;
     }
-    RWMutex::ReadLock lock(m_mutex);
+    //RWMutex::ReadLock lock(m_mutex);
+    Mutex::Lock lock(m_mutex);
     if((int)m_datas.size() < fd) {
         if(auto_create == false) {
             return nullptr;
@@ -87,9 +88,9 @@ FdCtx::ptr FdManager::get(int fd, bool auto_create) {
             return m_datas[fd];
         }
     }
-    lock.unlock();
+    //lock.unlock();
 
-    RWMutex::WriteLock lock2(m_mutex);
+    //RWMutex::WriteLock lock2(m_mutex);
     FdCtx::ptr ctx(new FdCtx(fd));
     if(fd >= (int)m_datas.size()) {
         m_datas.resize(fd * 1.5);
@@ -99,7 +100,8 @@ FdCtx::ptr FdManager::get(int fd, bool auto_create) {
 }
 
 void FdManager::del(int fd) {
-    RWMutex::WriteLock lock(m_mutex);
+    //RWMutex::WriteLock lock(m_mutex);
+    Mutex::Lock lock(m_mutex);
     if((int)m_datas.size() <= fd) {
         return;
     }

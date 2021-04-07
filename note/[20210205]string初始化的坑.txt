@@ -1,0 +1,12 @@
+string 成员变量初始化为空，
+导致一直空指针，赋值不了
+
+//问题如下
+class A
+{
+A(string str)
+	: m_str(str) {
+}
+private:
+string m_str = nullptr;
+}

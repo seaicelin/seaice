@@ -1,0 +1,7 @@
+https://blog.csdn.net/anonymalias/article/details/38473985
+
+两个静态变量的初始化顺序问题，
+如果一个静态变量依赖另一个静态变量，需要保证被依赖变量要先初始化。
+
+LoggerMgr 依赖 hook 函数，hook函数的初始化也放在一个 静态类里面，
+但是此时 hook 函数还没有初始化。导致 loggerMgr 调用系统函数时，发生错误。

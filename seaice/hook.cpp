@@ -6,6 +6,7 @@
 #include "fd_manager.h"
 #include "timer.h"
 #include "macro.h"
+#include <string.h>
 
 static seaice::Logger::ptr logger = SEAICE_LOGGER("system");
 
@@ -108,25 +109,28 @@ static ssize_t do_io(int fd, Fun fun, const char* hook_fun_name,
 retry:
     SEAICE_LOG_DEBUG(logger) << hook_fun_name;
     ssize_t n = fun(fd, std::forward<Args>(args)...);
-    SEAICE_LOG_DEBUG(logger) << hook_fun_name << " n = "
-            << n;
+    SEAICE_LOG_DEBUG(logger) << "do_io fun name " << hook_fun_name <<
+         " n = " << n;
     while(n == -1 && errno == EINTR) {
         n = fun(fd, std::forward<Args>(args)...);
     }
-    SEAICE_LOG_DEBUG(logger) << hook_fun_name << " fd = "
-            << fd << " event = " << event;
+    SEAICE_LOG_DEBUG(logger) << "do_io fun name " << hook_fun_name << 
+            " fd = " << fd << " event = " << event <<" n =" << 
+            n << " errno = " << errno << " err str = " << strerror(errno);
     if(n == -1 && errno == EAGAIN) {
         seaice::IOManager* iom = (seaice::IOManager*)seaice::IOManager::getThis();
-        seaice::Timer::ptr timer;
-        std::weak_ptr<timer_info> winfo(tinfo);
-        timer = iom->addTimer(to, [winfo, iom, fd, event](){
-            auto t = winfo.lock();
-            if(!t || t->cancelled) {
-                return;
-            }
-            t->cancelled = ETIMEDOUT;
-            iom->cancelEvent(fd, (seaice::IOManager::EVENT)event);
-        });
+            seaice::Timer::ptr timer(nullptr);
+        if(timeout_so != -1) {
+            std::weak_ptr<timer_info> winfo(tinfo);
+            timer = iom->addTimer(to, [winfo, iom, fd, event](){
+                auto t = winfo.lock();
+                if(!t || t->cancelled) {
+                    return;
+                }
+                t->cancelled = ETIMEDOUT;
+                iom->cancelEvent(fd, (seaice::IOManager::EVENT)event);
+            });
+        }
         int rt = iom->addEvent(fd, (seaice::IOManager::EVENT)event);
         if(rt != 0) {
             SEAICE_LOG_ERROR(logger) << hook_fun_name << " addEvent fd = "
@@ -237,10 +241,7 @@ int socket(int domain, int type, int protocol) {
 
 int connect(int sockfd, const struct sockaddr *addr,
                    socklen_t addrlen) {
-    if(!seaice::is_hook_enable()) {
-        return connect_f(sockfd, addr, addrlen);
-    }
-    int fd = connect_f(sockfd, addr, addrlen);
+    return connect_with_timeout(sockfd, addr, addrlen, -1);
 }
 
 
@@ -481,6 +482,7 @@ int connect_with_timeout(int fd, const struct sockaddr* addr,
         return connect_f(fd, addr, addrlen);
     }
     int n = connect_f(fd, addr, addrlen);
+    SEAICE_LOG_DEBUG(logger) << "hook connect n = " << n;
     if(n == 0) {
         return 0;
     } else if(n != -1 || errno != EINPROGRESS) {
@@ -504,7 +506,9 @@ int connect_with_timeout(int fd, const struct sockaddr* addr,
     }
     int rt = iom->addEvent(fd, seaice::IOManager::WRITE);
     if(rt == 0) {
+        SEAICE_LOG_DEBUG(logger) << "hook connect yieldToHold start hold";
         seaice::Fiber::yieldToHold();
+        SEAICE_LOG_DEBUG(logger) << "hook connect yieldToHold end hold";
         if(timer) {
             timer->cancel();
         }

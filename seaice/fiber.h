@@ -27,12 +27,12 @@ public:
 
     enum State
     {
-        INIT,
-        READY,
-        HOLD,
-        EXEC,
-        TERM,
-        EXECPT
+        INIT     = 0,
+        READY    = 1,
+        EXEC     = 2,
+        HOLD     = 3,
+        TERM     = 4,
+        EXECPT   = 5
     };
 
 private:
@@ -48,13 +48,16 @@ public:
     void swapIn();
     void swapOut();
     void reset(std::function<void()> cb);
-
+    std::string toStirng();
     static void run();
     static std::shared_ptr<Fiber> getMainFiber();
     static void setThis(std::shared_ptr<Fiber> fiber);
     static std::shared_ptr<Fiber> getThis();
     static void yieldToHold();
     static void yieldToReady();
+    const std::string toString() const;
+private:
+    const std::string toStateString(State state) const;
 private:
     uint64_t m_id;
     Callback m_cb = nullptr;

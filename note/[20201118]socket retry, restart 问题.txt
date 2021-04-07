@@ -1,0 +1,5 @@
+retry 
+restart
+
+不必 close socket 再重新链接
+直接重新链接就可以
