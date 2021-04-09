@@ -24,4 +24,7 @@
 #include "../seaice/address.h"
 #include "../seaice/timer.h"
 #include "../seaice/hook.h"
+#include "../seaice/Socket.h"
+#include "../seaice/tcpserver.h"
+#include "../seaice/bytearray.h"
 #include "ipcdefv01.h"

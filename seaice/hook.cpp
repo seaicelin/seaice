@@ -374,7 +374,7 @@ int fcntl(int fd, int cmd, ... /* arg */ ) {
             }
             break;
         case F_SETLEASE: 
-        case F_ADD_SEALS: 
+//        case F_ADD_SEALS: 
 #ifdef F_SETPIPE_SZ
         case F_SETPIPE_SZ:
 #endif 

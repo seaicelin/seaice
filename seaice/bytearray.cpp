@@ -28,7 +28,7 @@ ByteArray::Node::~Node() {
         delete[] ptr;
     }
 }
-
+/*
 ByteArray::ByteArray() 
     : m_baseSize(0)
     , m_pos(0)
@@ -37,7 +37,7 @@ ByteArray::ByteArray()
     , m_endian(SEAICE_BYTE_ORDER)
     , m_root(nullptr)
     , m_cur(nullptr){
-}
+}*/
 
 ByteArray::ByteArray(size_t baseSize) 
     : m_baseSize(baseSize)

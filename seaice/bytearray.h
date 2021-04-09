@@ -21,7 +21,7 @@ struct Node{
     Node* next;
 };
 
-ByteArray();
+//ByteArray();
 ByteArray(size_t baseSize = 4096);
 ~ByteArray();
 

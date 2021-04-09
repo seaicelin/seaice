@@ -104,6 +104,10 @@ set(TESTSRC  test/test_tcp_server.cpp)
 add_executable(test_tcp_server ${TESTSRC} ${SEAICE_SRC})
 target_link_libraries(test_tcp_server /usr/local/lib/libyaml-cpp.so)
 
+set(TESTSRC  example/echo_server.cpp)
+add_executable(echo_server ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(echo_server /usr/local/lib/libyaml-cpp.so)
+
 # 指定编译器
 #set(cmake_c_flags_debug "-g -Wall)
 
