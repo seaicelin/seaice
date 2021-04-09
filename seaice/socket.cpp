@@ -136,6 +136,12 @@ Socket::ptr Socket::accept() {
 }
 
 bool Socket::bind(const Address::ptr addr) {
+    if(!isValid()) {
+        newSock();
+        if(m_sock == -1) {
+            return false;
+        }
+    }
     int rt = ::bind(m_sock, addr->getAddr(), addr->getAddrLen());
     if(rt == -1) {
         SEAICE_LOG_ERROR(logger) << "bind(" << m_sock << ")" <<
@@ -431,6 +437,10 @@ bool Socket::init(int sock) {
         return true;
     }
     return false;
+}
+
+std::ostream& operator<<(std::ostream& os, const Socket& socket) {
+    return socket.dump(os);
 }
 
 }

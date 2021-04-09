@@ -75,6 +75,7 @@ EPOLLONESHOT:1073741824
     void tick() override;
     bool isStoping() override;
     void insertTimerAtFrontCallback() override;
+    static IOManager* GetThis();
 private:
     std::vector<FdContext*> mFdCtxs;
     RWMutexType m_mutex;

@@ -28,8 +28,7 @@ ByteArray(size_t baseSize = 4096);
 //编码
 //https://blog.csdn.net/weixin_43708622/article/details/111397290
 
-void writeFint8(
-    int8_t value);
+void writeFint8(int8_t value);
 void writeFuint8(uint8_t value);
 void writeFint16(int16_t value);
 void writeFuint16(uint16_t value);

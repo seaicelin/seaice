@@ -106,10 +106,44 @@ bool Address::Lookup(std::vector<Address::ptr>& vec, std::string host,
     hint.ai_family = family;
     hint.ai_socktype = type;
     hint.ai_protocol = protocol;
+    //hostname:一个主机名或者地址串(IPv4的点分十进制串或者IPv6的16进制串)
+    //service：服务名可以是十进制的端口号，也可以是已定义的服务名称，如ftp、http等
+    //[xx.xx.xx.xx:8080]
+    //[xx.xx.xx.xx]
+    //xx.xx.xx.xx:8080
+    //xx.xx.xx.xx
+    std::string node, service;
+    if(!host.empty()) {
+        std::size_t lpos = host.find('[');
+        std::size_t rpos = host.find(']');
+        std::size_t spos = host.find(':');
+        if(spos != std::string::npos) {
+            if(rpos != std::string::npos && lpos != std::string::npos) {
+                service = host.substr(spos + 1, host.size() - spos - 2);
+                node = host.substr(lpos + 1, spos - 1);
+            } else {
+                service = host.substr(spos + 1, host.size() - spos - 1);
+                node = host.substr(0, spos);
+            }
+        } else {
+            if(rpos != std::string::npos && lpos != std::string::npos) {
+                node = host.substr(lpos + 1, rpos - 1);
+            } else {
+                node = host;
+            }
+        }
+    }
 
-    ret = getaddrinfo(host.c_str(), NULL, &hint, &res);
+    const char* n =  node.empty()? host.c_str() : node.c_str();
+    const char* s = service.empty()? nullptr : service.c_str();
+
+    SEAICE_LOG_DEBUG(logger) << "node = " << n << " service = " << s;
+
+    ret = getaddrinfo(n, s, &hint, &res);
     if(ret != 0) {
-        SEAICE_LOG_ERROR(logger) << "getaddrinfo failed";
+        SEAICE_LOG_ERROR(logger) << "Address::Lookup getaddrinfo host ="
+            << host << " failed" <<" errno = " << errno 
+            << " str errno = " << gai_strerror(errno);
     }
     for(cur = res; cur != NULL; cur=cur->ai_next) {
         sockaddr* addr = cur->ai_addr;

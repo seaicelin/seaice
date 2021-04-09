@@ -30,11 +30,16 @@ set(SEAICE_SRC
                 seaice/fd_manager.cpp
                 seaice/fiber.cpp
                 seaice/hook.cpp
+                seaice/http/http.cpp
+                seaice/http/http11_parser.rl.cpp
+                seaice/http/httpclient_parser.rl.cpp
+                seaice/http/http_parser.cpp
                 seaice/iomanager.cpp
                 seaice/log.cpp
                 seaice/mutex.cpp
                 seaice/scheduler.cpp
                 seaice/socket.cpp
+                seaice/tcpserver.cpp
                 seaice/thread.cpp
                 seaice/timer.cpp
                 seaice/utils.cpp)
@@ -90,6 +95,14 @@ target_link_libraries(testAddr /usr/local/lib/libyaml-cpp.so)
 set(TESTSRC  test/test_ByteArray.cpp)
 add_executable(test_ByteArray ${TESTSRC} ${SEAICE_SRC})
 target_link_libraries(test_ByteArray /usr/local/lib/libyaml-cpp.so)
+
+set(TESTSRC  test/test_http.cpp)
+add_executable(test_http ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_http /usr/local/lib/libyaml-cpp.so)
+
+set(TESTSRC  test/test_tcp_server.cpp)
+add_executable(test_tcp_server ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_tcp_server /usr/local/lib/libyaml-cpp.so)
 
 # 指定编译器
 #set(cmake_c_flags_debug "-g -Wall)

@@ -84,5 +84,7 @@ protected:
     Address::ptr m_remoteAddr;
 };
 
+std::ostream& operator<<(std::ostream& os, const Socket& socket);
+
 }
 #endif

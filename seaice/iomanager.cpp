@@ -360,6 +360,10 @@ void IOManager::idleFun() {
     }
 }
 
+IOManager* IOManager::GetThis() {
+    return dynamic_cast<IOManager*>(Scheduler::getThis());
+}
+
 void IOManager::tick() {
     SEAICE_LOG_DEBUG(logger) << "write tick fd";
     write(m_tickFds[1], "T", 1);

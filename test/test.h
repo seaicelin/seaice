@@ -6,7 +6,7 @@
 #include <string.h>
 #include <iostream>
 #include <signal.h>
-#define _GNU_SOURCE     /* To get defns of NI_MAXSERV and NI_MAXHOST */
+//#define _GNU_SOURCE     /* To get defns of NI_MAXSERV and NI_MAXHOST */
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netdb.h>

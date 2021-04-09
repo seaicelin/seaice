@@ -1,0 +1,35 @@
+https://www.jianshu.com/p/ab1ed70e9177
+
+Linux下编译安装源代码无非就是三个步骤，./configure,make,make install
+
+1 ./configure --prefix=安装目录 --target=目标平台
+上面这两个是最基本的，有些源代码的安装需要好几十个参数，具体就只能参考具体的说明了。
+
+ragel-6.10编译安装
+
+一路向后
+  
+2019.04.06 21:34:09
+字数 133
+阅读 866
+本次安装基于系统CentOS Linux release 6.0 (Final)
+
+1.软件介绍
+Ragel是个有限状态机编译器，它将基于正则表达式的状态机编译成传统语言（C，C++，D，Java，Ruby等）的解析器。用Ragel可以很方便且很容易的写出各种FSM，也经常用作语法检测器。
+
+2.下载源码
+官网地址: http://www.colm.net/open-source/ragel/
+
+3.解压源码
+$ tar zxvf ragel-6.10.tar.gz
+4.编译前配置
+$ cd ragel-6.10
+$ ./configure
+5.编译源码
+$ make
+5.安装ragel
+$ make install
+
+
+从 rl 文件生成 cpp 文件
+ragel -G2 -C httpclient_parser.rl -o httpclient_parser.cpp

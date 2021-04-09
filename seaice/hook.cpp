@@ -110,7 +110,7 @@ retry:
     SEAICE_LOG_DEBUG(logger) << hook_fun_name;
     ssize_t n = fun(fd, std::forward<Args>(args)...);
     SEAICE_LOG_DEBUG(logger) << "do_io fun name " << hook_fun_name <<
-         " n = " << n;
+         " n = " << n << " timeout = " << to;
     while(n == -1 && errno == EINTR) {
         n = fun(fd, std::forward<Args>(args)...);
     }
@@ -120,7 +120,7 @@ retry:
     if(n == -1 && errno == EAGAIN) {
         seaice::IOManager* iom = (seaice::IOManager*)seaice::IOManager::getThis();
             seaice::Timer::ptr timer(nullptr);
-        if(timeout_so != -1) {
+        if(to != (uint64_t)-1) {
             std::weak_ptr<timer_info> winfo(tinfo);
             timer = iom->addTimer(to, [winfo, iom, fd, event](){
                 auto t = winfo.lock();
