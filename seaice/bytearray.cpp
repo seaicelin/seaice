@@ -443,6 +443,10 @@ void ByteArray::setPos(size_t v) {
         throw std::out_of_range("set pos out of range");
     }
 
+    if(v > m_size) {
+        m_size = v;
+    }
+
     m_pos = v;
     m_cur = m_root;
     size_t count = m_pos / m_baseSize;
@@ -451,6 +455,14 @@ void ByteArray::setPos(size_t v) {
         m_cur = m_cur->next;
         count--;
     }
+}
+
+void ByteArray::setSize(size_t size) {
+    if(size > m_cap || m_pos > size) {
+        SEAICE_LOG_ERROR(logger) << "set size failed, size > cap";
+        return;
+    }
+    m_size = size;
 }
 
 bool ByteArray::writeToFile(const std::string& filename) const {

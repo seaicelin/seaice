@@ -294,7 +294,7 @@ void IOManager::idleFun() {
         delete[] ptr;
     });
     while(!isStoping()) {
-        SEAICE_LOG_DEBUG(logger) << "idleFun start";
+        //SEAICE_LOG_DEBUG(logger) << "idleFun start";
         int rt = 0;
         do{
             const static int TIMEOUT = 5000;//ms
@@ -355,7 +355,7 @@ void IOManager::idleFun() {
             }
             lock.unlock();
         }
-        SEAICE_LOG_DEBUG(logger) << "idleFun end yieldToReady";
+        //SEAICE_LOG_DEBUG(logger) << "idleFun end yieldToReady";
         Fiber::yieldToReady();
     }
 }

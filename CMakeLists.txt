@@ -34,11 +34,15 @@ set(SEAICE_SRC
                 seaice/http/http11_parser.rl.cpp
                 seaice/http/httpclient_parser.rl.cpp
                 seaice/http/http_parser.cpp
+                seaice/http/http_session.cpp
+                seaice/http/http_server.cpp
                 seaice/iomanager.cpp
                 seaice/log.cpp
                 seaice/mutex.cpp
                 seaice/scheduler.cpp
                 seaice/socket.cpp
+                seaice/socketstream.cpp
+                seaice/stream.cpp
                 seaice/tcpserver.cpp
                 seaice/thread.cpp
                 seaice/timer.cpp
@@ -107,6 +111,10 @@ target_link_libraries(test_tcp_server /usr/local/lib/libyaml-cpp.so)
 set(TESTSRC  example/echo_server.cpp)
 add_executable(echo_server ${TESTSRC} ${SEAICE_SRC})
 target_link_libraries(echo_server /usr/local/lib/libyaml-cpp.so)
+
+set(TESTSRC  test/test_http_server.cpp)
+add_executable(test_http_server ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_http_server /usr/local/lib/libyaml-cpp.so)
 
 # 指定编译器
 #set(cmake_c_flags_debug "-g -Wall)

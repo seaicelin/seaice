@@ -148,6 +148,7 @@ bool Socket::bind(const Address::ptr addr) {
             " errno = " << errno << " errno str = " << strerror(errno);
         return false;
     }
+    getLocalAddress();
     return true;
 }
 
@@ -404,7 +405,7 @@ bool Socket::cancelAccept() {
     return iom->cancelEvent(m_sock, IOManager::READ);
 }
 
-void Socket::initSock() {
+void Socket::initSockOpt() {
     int val = 1;
     //1、一般来说，一个端口释放后会等待两分钟之后才能再被使用，SO_REUSEADDR是让端口释放后立即就可以被再次使用。
     //https://blog.csdn.net/u010144805/article/details/78579528
@@ -423,7 +424,7 @@ void Socket::newSock() {
             ", " << m_type << ", " << m_protocol << ")" <<
             " errno = " << errno <<" err str = " << strerror(errno);
     }
-    initSock();
+    initSockOpt();
 }
 
 bool Socket::init(int sock) {
@@ -431,7 +432,7 @@ bool Socket::init(int sock) {
     if(ctx && ctx->isSocket() && !ctx->isClose()) {
         m_sock = sock;
         m_connected = true;
-        initSock();
+        initSockOpt();
         getLocalAddress();
         getRemoteAddress();
         return true;

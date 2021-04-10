@@ -99,7 +99,7 @@ void Scheduler::mainFun() {
         }
         if(ft.fiber) {
             Fiber::State state = ft.fiber->getState();
-            SEAICE_LOG_DEBUG(logger) << "fiber swap in" << ft.fiber->toString();
+            //SEAICE_LOG_DEBUG(logger) << "fiber swap in" << ft.fiber->toString();
             //SEAICE_ASSERT(state != Fiber::TERM);
             SEAICE_ASSERT(state != Fiber::EXECPT);
             SEAICE_ASSERT(state != Fiber::EXEC);
@@ -109,7 +109,7 @@ void Scheduler::mainFun() {
             }
             //}
             state = ft.fiber->getState();
-            SEAICE_LOG_DEBUG(logger) << "fiber swap out" << ft.fiber->toString();
+            //SEAICE_LOG_DEBUG(logger) << "fiber swap out" << ft.fiber->toString();
             /*if(state == Fiber::HOLD || state == Fiber::READY) {
                 //need_tick = schedule(ft.fiber, ft.threadId);
             } else */
@@ -124,12 +124,12 @@ void Scheduler::mainFun() {
                cb_fiber = Fiber::ptr(new Fiber(ft.cb));
             }
             Fiber::State state = cb_fiber->getState();
-            SEAICE_LOG_DEBUG(logger) << "cb swap in" << cb_fiber->toString();
+            //SEAICE_LOG_DEBUG(logger) << "cb swap in" << cb_fiber->toString();
             SEAICE_ASSERT(state != Fiber::TERM);
             SEAICE_ASSERT(state != Fiber::EXECPT);
             SEAICE_ASSERT(state != Fiber::EXEC);
             cb_fiber->swapIn();
-            SEAICE_LOG_DEBUG(logger) << "cb swap out" << cb_fiber->toString();
+            //SEAICE_LOG_DEBUG(logger) << "cb swap out" << cb_fiber->toString();
             state = cb_fiber->getState();
             if(state == Fiber::HOLD || state == Fiber::READY) {
                 //need_tick = schedule(cb_fiber, ft.threadId);

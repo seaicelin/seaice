@@ -134,11 +134,11 @@ void TimerManager::listTimeroutCallback(std::list<Callback>& callbacks) {
         RWMutexType::WriteLock lock(m_mutex);
         auto end = m_timerSet.lower_bound(m_timer);
         auto begin = m_timerSet.begin();
-        SEAICE_LOG_DEBUG(logger) << "start timer set size = " << m_timerSet.size();
+        //SEAICE_LOG_DEBUG(logger) << "start timer set size = " << m_timerSet.size();
         vec.assign(begin, end);
-        SEAICE_LOG_DEBUG(logger) << "list callback size = " << vec.size();
+        //SEAICE_LOG_DEBUG(logger) << "list callback size = " << vec.size();
         m_timerSet.erase(begin, end);
-        SEAICE_LOG_DEBUG(logger) << "end timer set size = " << m_timerSet.size();
+        //SEAICE_LOG_DEBUG(logger) << "end timer set size = " << m_timerSet.size();
     }
     callbacks.clear();
     for(auto it : vec) {

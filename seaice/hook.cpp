@@ -109,18 +109,24 @@ static ssize_t do_io(int fd, Fun fun, const char* hook_fun_name,
 retry:
     SEAICE_LOG_DEBUG(logger) << hook_fun_name;
     ssize_t n = fun(fd, std::forward<Args>(args)...);
-    SEAICE_LOG_DEBUG(logger) << "do_io fun name " << hook_fun_name <<
-         " n = " << n << " timeout = " << to;
+    //SEAICE_LOG_DEBUG(logger) << "do_io fun name " << hook_fun_name <<
+    //     " n = " << n << " timeout = " << to;
     while(n == -1 && errno == EINTR) {
         n = fun(fd, std::forward<Args>(args)...);
     }
-    SEAICE_LOG_DEBUG(logger) << "do_io fun name " << hook_fun_name << 
-            " fd = " << fd << " event = " << event <<" n =" << 
-            n << " errno = " << errno << " err str = " << strerror(errno);
+    SEAICE_LOG_DEBUG(logger) << "do_io " << hook_fun_name << 
+            " fd = " << fd << " event = " << event <<" n =" << n;
+
+    if(n <= 0){
+        SEAICE_LOG_DEBUG(logger) << " errno = " << errno << " err str = " << strerror(errno);
+    }
+
     if(n == -1 && errno == EAGAIN) {
         seaice::IOManager* iom = (seaice::IOManager*)seaice::IOManager::getThis();
             seaice::Timer::ptr timer(nullptr);
         if(to != (uint64_t)-1) {
+            SEAICE_LOG_ERROR(logger) << hook_fun_name << "do_io addtimer fd = "
+                    << fd << " timeout = " << to;
             std::weak_ptr<timer_info> winfo(tinfo);
             timer = iom->addTimer(to, [winfo, iom, fd, event](){
                 auto t = winfo.lock();
@@ -133,13 +139,15 @@ retry:
         }
         int rt = iom->addEvent(fd, (seaice::IOManager::EVENT)event);
         if(rt != 0) {
-            SEAICE_LOG_ERROR(logger) << hook_fun_name << " addEvent fd = "
+            SEAICE_LOG_ERROR(logger) << hook_fun_name << "do_io addEvent fd = "
                     << fd << " event = " << event;
             if(timer) {
                 timer->cancel();
             }
             return -1;
         } else {
+            SEAICE_LOG_DEBUG(logger) << "do_io " << hook_fun_name << 
+                    " fd = " << fd << " yieldToHold ";
             seaice::Fiber::yieldToHold();
             if(timer) {
                 timer->cancel();

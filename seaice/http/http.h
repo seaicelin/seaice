@@ -178,6 +178,8 @@ public:
     typedef std::map<std::string, std::string, CaseInsensitiveLess> MapType;
     HttpRequest(uint8_t version = 0x11, bool close = true);
 
+    void init();
+
     HttpMethod getMethod() const { return m_method; }
     uint8_t getVersion() const {return m_versoin;}
     HttpStatus getStatus() const {return m_status;}
@@ -247,6 +249,9 @@ public:
         return getAs(m_cookies, key, def);
     }
 
+    bool isClose() const {return m_close;}
+    void setClose(bool v) {m_close = v;}
+
 private:
     HttpMethod m_method;
     HttpStatus m_status;
@@ -310,6 +315,8 @@ private:
     MapType m_headers;
 };
 
+std::ostream& operator<<(std::ostream& os, const HttpRequest& req);
+std::ostream& operator<<(std::ostream& os, const HttpResponse& res);
 
 }
 }

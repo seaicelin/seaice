@@ -102,6 +102,14 @@ uint64_t HttpRequestParser::getContentLength() const {
     return m_data->getHeaderAs<uint64_t>("Content-Length");
 }
 
+uint64_t HttpRequestParser::GetHttpRequestBufferSize() {
+    return s_http_request_buffer_size;
+}
+
+uint64_t HttpRequestParser::GetHttpRequestMaxBodySize() {
+    return s_http_request_max_body_size;
+}
+
 void on_response_field(void *data, const char *field, size_t flen, const char *value, size_t vlen) {
     HttpResponseParser* parser = static_cast<HttpResponseParser*>(data);
     if(flen == 0) {

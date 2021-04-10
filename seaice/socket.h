@@ -70,7 +70,7 @@ public:
     bool cancelAll();
     bool cancelAccept();
 protected:
-    void initSock();
+    void initSockOpt();
     void newSock();
     virtual bool init(int sock);
 

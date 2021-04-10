@@ -24,7 +24,7 @@ bool TcpServer::bind(Address::ptr addr) {
     std::vector<Address::ptr> addrs;
     std::vector<Address::ptr> fails;
     addrs.push_back(addr);
-    bind(addrs, fails);
+    return bind(addrs, fails);
 }
 
 bool TcpServer::bind(const std::vector<Address::ptr>& addrs, 

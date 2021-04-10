@@ -19,6 +19,9 @@ public:
 
     HttpRequest::ptr getData() const {return m_data;}
     uint64_t getContentLength() const;
+
+    static uint64_t GetHttpRequestBufferSize();
+    static uint64_t GetHttpRequestMaxBodySize();
 private:
     http_parser m_parser;
     HttpRequest::ptr m_data;
