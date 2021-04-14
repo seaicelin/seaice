@@ -1,5 +1,7 @@
 #include "test.h"
 #include "../seaice/http/http_server.h"
+#include "../seaice/http/http.h"
+#include "../seaice/http/http_session.h"
 
 static seaice::Logger::ptr logger = SEAICE_LOGGER("system");
 
@@ -9,6 +11,19 @@ void run() {
     while(!server->bind(addr)) {
         sleep(2);
     }
+    auto sd = server->getDispatch();
+    sd->addServlet("/seaice/xx", [](seaice::http::HttpRequest::ptr req
+                                , seaice::http::HttpResponse::ptr rsp
+                                , seaice::http::HttpSession::ptr session){
+        rsp->setBody(req->toString());
+        return 0;
+    });
+    sd->addGlobServlet("/seaice/*", [](seaice::http::HttpRequest::ptr req
+                                , seaice::http::HttpResponse::ptr rsp
+                                , seaice::http::HttpSession::ptr session){
+        rsp->setBody("Glob:\r\n" + req->toString());
+        return 0;
+    });
     server->start();
 }
 

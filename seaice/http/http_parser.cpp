@@ -9,7 +9,9 @@ namespace http{
 static seaice::Logger::ptr logger = SEAICE_LOGGER("system");
 
 static uint64_t s_http_request_buffer_size = 1024 * 4;
-static uint64_t s_http_request_max_body_size = 1024 * 64;
+static uint64_t s_http_request_max_body_size = 1024 * 1024 * 64;
+static uint64_t s_http_response_buffer_size = 1024 * 4;
+static uint64_t s_http_response_max_body_size = 1024 * 1024 * 64;
 
 void on_request_field(void *data, const char *field, size_t flen, const char *value, size_t vlen) {
     HttpRequestParser* parser = static_cast<HttpRequestParser*>(data);
@@ -171,7 +173,10 @@ HttpResponseParser::HttpResponseParser()
     m_parser.data = this;
 }
 
-size_t HttpResponseParser::execute(char* data, size_t len) {
+size_t HttpResponseParser::execute(char* data, size_t len, bool chunck) {
+    if(chunck) {
+        httpclient_parser_init(&m_parser);
+    }
     size_t offset = httpclient_parser_execute(&m_parser, data, len, 0);
     memmove(data, data + offset, (len - offset));
     return offset;
@@ -188,6 +193,15 @@ int HttpResponseParser::hasError() {
 uint64_t HttpResponseParser::getContentLength() const {
     return m_data->getHeaderAs<uint64_t>("Content-Length");
 }
+
+uint64_t HttpResponseParser::GetHttpResponseBufferSize() {
+    return s_http_response_buffer_size;
+}
+
+uint64_t HttpResponseParser::GetHttpResponseMaxBodySize() {
+    return s_http_response_max_body_size;
+}
+
 
 }
 }

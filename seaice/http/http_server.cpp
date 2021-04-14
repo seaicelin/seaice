@@ -10,6 +10,7 @@ HttpServer::HttpServer(bool keepalive, seaice::IOManager* worker
     , seaice::IOManager* accept_worker) 
     : TcpServer(worker, accept_worker) 
     , m_Keepalive(keepalive) {
+    m_dispatch.reset(new ServletDispatch);
 }
 
 void HttpServer::handleClient(Socket::ptr sock) {
@@ -23,8 +24,11 @@ void HttpServer::handleClient(Socket::ptr sock) {
             break;
         }
         SEAICE_LOG_DEBUG(logger) << "req = " << *req;
+
         HttpResponse::ptr rsp(new HttpResponse(req->getVersion(), req->isClose() || !m_Keepalive));
-        rsp->setBody("hello world");
+        m_dispatch->handle(req, rsp, session);
+
+        //rsp->setBody("hello world");
         session->sendResponse(rsp);
         SEAICE_LOG_DEBUG(logger) << "rsp = " << *rsp;
     } while(m_Keepalive);

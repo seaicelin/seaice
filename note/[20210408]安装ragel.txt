@@ -33,3 +33,4 @@ $ make install
 
 从 rl 文件生成 cpp 文件
 ragel -G2 -C httpclient_parser.rl -o httpclient_parser.cpp
+ragel -G2 -C uri.rl -o uri.cpp

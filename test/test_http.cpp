@@ -58,7 +58,7 @@ const char test_response_data[] = "HTTP/1.1 200 OK\r\n"
 void test_response() {
     seaice::http::HttpResponseParser parser;
     std::string tmp = test_response_data;
-    size_t s = parser.execute(&tmp[0], tmp.size());
+    size_t s = parser.execute(&tmp[0], tmp.size(), false);
     SEAICE_LOG_DEBUG(logger) << " s = " << s
         <<" has error = " << parser.hasError()
         <<" is finish = " << parser.isFinish()

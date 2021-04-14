@@ -417,8 +417,11 @@ uint32_t IPv4Address::getPort() {
     return byteswapOnLittleEndian(m_addr.sin_port);
 }
 
-void IPv4Address::setPort(uint32_t port) {
+void IPv4Address::setPort(uint16_t port) {
     m_addr.sin_port = byteswapOnLittleEndian(port);
+    //SEAICE_LOG_DEBUG(logger) << byteswapOnLittleEndian(port);
+    //SEAICE_LOG_DEBUG(logger) << m_addr.sin_port;
+    //SEAICE_LOG_DEBUG(logger) << port;
 }
 
 IPv6Address::ptr IPv6Address::Create(const char* address, uint16_t port) {
@@ -525,7 +528,7 @@ uint32_t IPv6Address::getPort() {
     return byteswapOnLittleEndian(m_addr.sin6_port);
 }
 
-void IPv6Address::setPort(uint32_t port) {
+void IPv6Address::setPort(uint16_t port) {
     m_addr.sin6_port = byteswapOnLittleEndian(port);
 }
 

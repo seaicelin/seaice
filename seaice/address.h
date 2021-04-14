@@ -54,7 +54,7 @@ public:
     virtual IPAddress::ptr networkAddress(uint32_t prefix_len) = 0;
     virtual IPAddress::ptr subnetMask(uint32_t prefix_len) = 0;
     virtual uint32_t getPort() = 0;
-    virtual void setPort(uint32_t port) = 0;
+    virtual void setPort(uint16_t port) = 0;
 };
 
 class IPv4Address : public IPAddress{
@@ -73,7 +73,7 @@ public:
     IPAddress::ptr networkAddress(uint32_t prefix_len) override;
     IPAddress::ptr subnetMask(uint32_t prefix_len) override;
     uint32_t getPort();
-    void setPort(uint32_t port);
+    void setPort(uint16_t);
 
 private:
     sockaddr_in m_addr;
@@ -95,7 +95,7 @@ public:
     IPAddress::ptr networkAddress(uint32_t prefix_len) override;
     IPAddress::ptr subnetMask(uint32_t prefix_len) override;
     uint32_t getPort();
-    void setPort(uint32_t);
+    void setPort(uint16_t);
 
 private:
     sockaddr_in6 m_addr;
