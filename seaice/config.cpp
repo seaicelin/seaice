@@ -24,7 +24,7 @@ std::shared_ptr<LogAppender> Appender_Yaml::getAppender() {
 std::shared_ptr<Logger> Logger_Yaml::getLogger() {
     Logger::ptr loggerPtr = Logger::ptr(new Logger);
     loggerPtr->setName(m_name);
-    loggerPtr->setLogLevel(LogLevel::fromString(m_level));
+    loggerPtr->setLevel(LogLevel::fromString(m_level));
     for(auto appender : m_appenders) {
         loggerPtr->setAppender(appender->getAppender());
     }

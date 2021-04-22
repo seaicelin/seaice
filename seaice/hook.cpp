@@ -89,7 +89,7 @@ static ssize_t do_io(int fd, Fun fun, const char* hook_fun_name,
         return fun(fd, std::forward<Args>(args)...);
     }
 
-    seaice::FdCtx::ptr ctx = seaice::FdMgr::getInstance()->get(fd);
+    seaice::FdCtx::ptr ctx = seaice::FdMgr::GetInstance()->get(fd);
     if(!ctx) {
         return fun(fd, std::forward<Args>(args)...);
     }
@@ -242,7 +242,7 @@ int socket(int domain, int type, int protocol) {
     if(fd == -1) {
         return fd;
     }
-    seaice::FdMgr::getInstance()->get(fd, true);
+    seaice::FdMgr::GetInstance()->get(fd, true);
     return fd;
 }
 
@@ -256,7 +256,7 @@ int connect(int sockfd, const struct sockaddr *addr,
 int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
     int fd = do_io(sockfd, accept_f, "accept", seaice::IOManager::READ, SO_RCVTIMEO, addr, addrlen);
     if(fd >= 0) {
-        seaice::FdMgr::getInstance()->get(fd, true);
+        seaice::FdMgr::GetInstance()->get(fd, true);
     }
     return fd;
 }
@@ -321,13 +321,13 @@ int close(int fd) {
     if(!seaice::is_hook_enable()) {
         return close_f(fd);
     }
-    seaice::FdCtx::ptr ctx = seaice::FdMgr::getInstance()->get(fd);
+    seaice::FdCtx::ptr ctx = seaice::FdMgr::GetInstance()->get(fd);
     if(ctx) {
         auto iom = (seaice::IOManager*)seaice::IOManager::getThis();
         if(iom) {
             iom->cancelAllEvent(fd);
         }
-        seaice::FdMgr::getInstance()->del(fd);
+        seaice::FdMgr::GetInstance()->del(fd);
     }
     return close_f(fd);
 }
@@ -350,7 +350,7 @@ int fcntl(int fd, int cmd, ... /* arg */ ) {
                 if(!seaice::is_hook_enable()) {
                     return arg;
                 }
-                seaice::FdCtx::ptr ctx = seaice::FdMgr::getInstance()->get(fd);
+                seaice::FdCtx::ptr ctx = seaice::FdMgr::GetInstance()->get(fd);
                 if(!ctx || ctx->isClose() || !ctx->isSocket()) {
                     return arg;
                 }
@@ -368,7 +368,7 @@ int fcntl(int fd, int cmd, ... /* arg */ ) {
                 if(!seaice::is_hook_enable()) {
                     return fcntl_f(fd, cmd, arg);
                 }
-                seaice::FdCtx::ptr ctx = seaice::FdMgr::getInstance()->get(fd);
+                seaice::FdCtx::ptr ctx = seaice::FdMgr::GetInstance()->get(fd);
                 if(!ctx || ctx->isClose() || !ctx->isSocket()) {
                     return fcntl_f(fd, cmd, arg);
                 }
@@ -443,7 +443,7 @@ int ioctl(int fd, unsigned long request, ...) {
     }
     if(FIONBIO == request) {
         bool user_nonblock = !!*(int*)arg; //!!是为了把 int 转为 bool 类型
-        seaice::FdCtx::ptr ctx = seaice::FdMgr::getInstance()->get(fd);
+        seaice::FdCtx::ptr ctx = seaice::FdMgr::GetInstance()->get(fd);
         if(!ctx || ctx->isClose() || !ctx->isSocket()) {
             return ioctl_f(fd, request, arg);
         }
@@ -466,7 +466,7 @@ int setsockopt(int sockfd, int level, int optname,
     }
     if(SOL_SOCKET == level) {
         if(optname == SO_RCVTIMEO || optname == SO_SNDTIMEO) {
-            seaice::FdCtx::ptr ctx = seaice::FdMgr::getInstance()->get(sockfd);
+            seaice::FdCtx::ptr ctx = seaice::FdMgr::GetInstance()->get(sockfd);
             if(ctx) {
                 const timeval* v = (const timeval*)optval;
                 ctx->setTimeout(optname, v->tv_sec * 1000 + v->tv_usec / 1000);
@@ -481,7 +481,7 @@ int connect_with_timeout(int fd, const struct sockaddr* addr,
     if(!seaice::is_hook_enable()) {
         return connect_f(fd, addr, addrlen);
     }
-    seaice::FdCtx::ptr ctx = seaice::FdMgr::getInstance()->get(fd);
+    seaice::FdCtx::ptr ctx = seaice::FdMgr::GetInstance()->get(fd);
     if(!ctx || ctx->isClose()) {
         errno = EBADF;
         return -1;

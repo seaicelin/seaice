@@ -1,0 +1,207 @@
+## 扩展 friend 语法
+
+可以为类模板声明友元
+
+
+`
+class P;
+
+template<typename T> class PeopleT {
+    friend T;
+};
+
+PeopleT<P> PP; //类 P 是友元类
+PeopleT<int> Pi; //忽略友元声明
+
+//普通的类定义，使用int做参数
+using People = People<int>;
+
+//测试专用的定义，是 TestPeople 类成为友元
+class TestPeople;
+using PeopleTest = PeopleT<TestPeople>;
+
+`
+
+## final/override 控制，出现在函数后时的情况
+
+final 禁止函数被重载
+override 表明这个函数是重载基类的同名函数
+
+## 模板函数的默认模板参数
+
+默认类模板参数必须从右开始指定，而默认模板函数的参数则没有这个限制
+
+`
+template<typename T1, typename T2 = int>
+class DefClass1;  --> pass
+
+template<typename T1 = int, typename T2>
+class DefClass2;  --> fail
+
+template<typename T1 = int, typename T2>
+void DefFunc1(T1 a, T2 b);   --> pass
+
+template<typename T1, typename T2 = int>
+void DefFunc2(T1 a, T2 b);   --> pass
+
+`
+## 非静态成员的 sizeof
+
+`
+class A {
+private:
+    int b;
+}
+
+sizeof(A::b);  --> pass at c++11
+
+`
+
+## 静态断言， static_assert
+
+相比 assert, 静态断言可以在编译时期得出结果。
+`
+//第一参数必须时常量表达式
+static_assert(sizeof(int) == 8, "this is 64 bit machine");
+`
+
+## std::move 强制转化为右值引用
+
+`
+<utility>
+
+static_cast<T&&>(lvalue) //基本等同于这个类型转换
+
+`
+
+C++11 中， 拷贝/移动构造函数实际上有下面三个版本
+
+`
+T Object(T& t)
+T Object(const T& t)
+T Object(T&& t)
+`
+
+如果声明了移动构造函数/移动赋值函数/拷贝赋值函数/析构函数中的一个或者多个，
+编译器也不会再为程序员生成默认的拷贝构造函数。
+所以，c++11 中，拷贝构造/赋值和移动构造/赋值函数必须同时提供或者同时不提供。
+
+## 完美转发
+http://c.biancheng.net/view/7868.html
+https://www.cnblogs.com/Braveliu/p/12235618.html
+所谓完美转发，它指的是函数模板可以将自己的参数“完美”地转发给内部调用的其它函数。
+所谓完美，即不仅能准确地转发参数的值，还能保证被转发参数的左、右值属性不变.
+（详细看折叠规则，Page 105）
+为什么需要完美转发？
+下面例子，
+
+`
+void RunCode(int && m) { cout << "rvalue ref" << endl; }
+void RunCode(int & m) { cout << "lvalue ref" << endl; }
+void RunCode(const int && m) { cout << "const rvalue ref" << endl; }
+void RunCode(const int & m) { cout << "const lvalue ref" << endl; }
+
+template<typename T>
+void PrefectForward(T &&t) {
+    RunCode(forward<T>(t));
+}
+
+void test_forward() {
+    int a = -1;
+    int b = -2;
+    const int c = 1;
+    const int d = 2;
+    PrefectForward(a); //lvalue ref
+    PrefectForward(move(b)); //rvalue ref
+    PrefectForward(c); //lvalue ref
+    PrefectForward(move(d)); //rvalue ref
+}
+`
+
+## 显示转换操作符
+而在C++11中，标准将explicit的使用范围扩展到了自定义类型转换操作符上，以支持所谓的“显式类型转换”。
+explicit关键字作用于类型转换操作符上，意味着只有在直接 构造目标类型 或 显式类型转换 时可以使用该类型。
+
+`
+#include <iostream>
+using namespace std;
+
+class ConvertTo
+{
+};
+
+class Convertable
+{
+public:
+    explicit operator ConvertTo () const
+    {
+        cout << "callCount : " << ++(m_nCallCnt) << endl;
+        return ConvertTo();
+    }
+
+    static int m_nCallCnt;
+};
+
+int Convertable::m_nCallCnt = 0;
+
+void Func(ConvertTo ct) { }
+
+int main()
+{
+    Convertable c;
+    ConvertTo ct(c);   // 直接初始化，通过
+//  ConvertTo ct2 = c; // 拷贝构造初始化，编译失败
+    ConvertTo ct3 = static_cast<ConvertTo>(c);  // 强制转化，通过
+//  Func(c);          // 拷贝构造初始化，编译失败
+    system("pause");
+}
+`
+
+## SFINAE 
+
+https://izualzhy.cn/SFINAE-and-enable_if
+
+## auto / decltype 关键字
+
+#include<typeinfo>
+
+## 强类型枚举
+
+## 堆内存管理
+
+- 显示内存管理
+- 智能指针
+- 垃圾回收
+
+## 编译时常量性
+我们可以在函数返回类型前加入关键字 constexpr 来使其成为常量表达式函数。但是必须满足条件
+
+- 函数体只有单一的 return 语句
+- 函数必须返回值
+- 使用前必须定义
+- return 返回语句必须是一个常量表达式
+
+`
+constexpr int GetConst() {return 1;}
+`
+
+## 变长模板
+
+`
+template<typename... Elements>
+class tuple;
+
+template<typename Head, typename... Tail>
+class tuple<Head, Tail...> : private tuple<Tail...> {
+    Head head;
+};
+
+template<>
+class tupleM<>{
+    
+};
+
+`
+
+//page 209
+//第八章

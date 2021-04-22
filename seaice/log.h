@@ -109,6 +109,7 @@ public:
         XX(WARN, WARN);
         XX(ERROR, ERROR);
         XX(FATAL, FATAL);
+        return LogLevel::UNKNOW;
     }
 #undef XX
 };
@@ -172,8 +173,8 @@ public:
     typedef Mutex MutexType;
 
     Logger(LogLevel::Level level = LogLevel::DEBUG, string name = "seaice")
-    : m_logLevel(level)
-    , m_name(name) {
+        : m_level(level)
+        , m_name(name) {
     }
 
     Logger(std::shared_ptr<LogAppender> appender) {
@@ -185,18 +186,22 @@ public:
 #endif
     }
 
+    void clearAppenders();
     void setAppender(std::shared_ptr<LogAppender> appender);
     void log(std::shared_ptr<LogEvent> event);
     void setFormatter(std::shared_ptr<LogFormatter> formatter);
-    void setLogLevel(LogLevel::Level level) {m_logLevel = level;}
+    void setLevel(LogLevel::Level level) {m_level = level;}
     void setName(string name) {m_name = name;}
+    void setId(int id) {m_id = id;}
     const string getName() const { return m_name;}
+    std::string toYamlString() const;
 private:
     //LogEvent::ptr m_event;
-    LogLevel::Level m_logLevel;
+    int m_id;
+    LogLevel::Level m_level;
     string m_name;
     std::list<std::shared_ptr<LogAppender> > m_appenders;
-    //std::shared_ptr<LogFormatter> m_formatter;
+    std::shared_ptr<LogFormatter> m_formatter;
     MutexType m_mutex;
 };
 
@@ -246,6 +251,7 @@ public:
     FormaterItem::ptr getFormatterItem(char name, string arg);
     void init();
     void format(stringstream& oss, LogEvent::ptr event);
+    std::string getPattern() const {return m_pattern;}
 private:
     string m_pattern;
     std::vector<FormaterItem::ptr> m_items;
@@ -256,13 +262,18 @@ class LogAppender
 public:
     typedef std::shared_ptr<LogAppender> ptr;
 
-    LogAppender() {}
+    LogAppender()
+        : m_level(LogLevel::UNKNOW) {
+    }
     virtual ~LogAppender() {}
 
     void setFormatter(LogFormatter::ptr formatter) {m_formatter = formatter;}
+    void setLevel(LogLevel::Level v) {m_level = v;}
 
     virtual void format(LogEvent::ptr event) = 0;
+    virtual std::string toYamlString() = 0;
  protected:
+    LogLevel::Level m_level;
     LogFormatter::ptr m_formatter;
 };
 
@@ -276,7 +287,8 @@ public:
     }
     ~StdoutLogAppender() {}
 
-    virtual void format(LogEvent::ptr event);
+    void format(LogEvent::ptr event) override;
+    std::string toYamlString() override;
 };
 
 class FileLogAppender : public LogAppender
@@ -303,7 +315,8 @@ public:
         }
     }
 
-    void format(LogEvent::ptr event);
+    void format(LogEvent::ptr event) override;
+    std::string toYamlString() override;
 private:
     string m_path;
     ofstream m_ofstream;
@@ -315,7 +328,7 @@ public:
     typedef std::shared_ptr<LoggerMgr> ptr;
 
     LoggerMgr() {
-        loadLogConfig();
+//        loadLogConfig();
         std::cout<<"loggerMgr"<<std::endl;
     }
 
@@ -332,9 +345,12 @@ public:
         }
         return s_instance;
     }
-    Logger::ptr LookupLogger(string loggerName);
+    Logger::ptr LookupLogger(std::string loggerName);
     Logger::ptr getDefaultLogger();
-
+    void addLogger(Logger::ptr logger);
+    void delLogger(std::string name);
+    Logger::ptr findLogger(std::string name);
+    std::string toYamlString();
 private:
     void loadLogConfig();
 

@@ -27,6 +27,9 @@ set(SEAICE_SRC
                 seaice/address.cpp
                 seaice/bytearray.cpp
                 seaice/config.cpp
+                seaice/config2.cpp
+                seaice/daemon.cpp
+                seaice/env.cpp
                 seaice/fd_manager.cpp
                 seaice/fiber.cpp
                 seaice/hook.cpp
@@ -122,6 +125,18 @@ target_link_libraries(test_tcp_server /usr/local/lib/libyaml-cpp.so)
 set(TESTSRC  test/test_http_connection.cpp)
 add_executable(test_http_connection ${TESTSRC} ${SEAICE_SRC})
 target_link_libraries(test_http_connection /usr/local/lib/libyaml-cpp.so)
+
+set(TESTSRC  test/test_daemon.cpp)
+add_executable(test_daemon ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_daemon /usr/local/lib/libyaml-cpp.so)
+
+set(TESTSRC  test/test_env.cpp)
+add_executable(test_env ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_env /usr/local/lib/libyaml-cpp.so)
+
+set(TESTSRC  test/test_config2.cpp)
+add_executable(test_config2 ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_config2 /usr/local/lib/libyaml-cpp.so)
 
 # 指定编译器
 #set(cmake_c_flags_debug "-g -Wall)

@@ -71,7 +71,7 @@ Socket::~Socket() {
 }
 
 uint64_t Socket::getSendTimerout() {
-    FdCtx::ptr ctx = FdMgr::getInstance()->get(m_sock);
+    FdCtx::ptr ctx = FdMgr::GetInstance()->get(m_sock);
     if(ctx) {
         return ctx->getTimeout(SO_SNDTIMEO);
     }
@@ -86,7 +86,7 @@ void Socket::setSendTimeout(uint64_t ms) {
 }
 
 uint64_t Socket::getRecvTimeout() {
-    FdCtx::ptr ctx = FdMgr::getInstance()->get(m_sock);
+    FdCtx::ptr ctx = FdMgr::GetInstance()->get(m_sock);
     if(ctx) {
         return ctx->getTimeout(SO_RCVTIMEO);
     }
@@ -428,7 +428,7 @@ void Socket::newSock() {
 }
 
 bool Socket::init(int sock) {
-    FdCtx::ptr ctx = FdMgr::getInstance()->get(sock);
+    FdCtx::ptr ctx = FdMgr::GetInstance()->get(sock);
     if(ctx && ctx->isSocket() && !ctx->isClose()) {
         m_sock = sock;
         m_connected = true;

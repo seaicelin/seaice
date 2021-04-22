@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <iostream>
+#include <cstring>
 #include <dirent.h>
 #include <stdint.h>
 #include <time.h>
@@ -114,6 +115,64 @@ uint64_t getCurrentMs() {
     }
     return (ts.tv_sec * 1000 + ts.tv_nsec/1000000);
 }
+
+std::string Time2Str(time_t ts, const std::string& format) {
+    struct tm tm;
+    localtime_r(&ts, &tm);
+    char buf[64];
+    strftime(buf, sizeof(buf), format.c_str(), &tm);
+    return buf;
+}
+
+time_t Str2Time(const char* str, const char* format) {
+    struct tm t;
+    memset(&t, 0, sizeof(t));
+    if(!strptime(str, format, &t)) {
+        return 0;
+    }
+    return mktime(&t);
+}
+
+void FSUtil::ListAllFile(std::vector<std::string>& files
+                      , const std::string& path
+                      , const std::string& subfix) {
+
+    if(access(path.c_str(), 0) != 0) {
+        SEAICE_LOG_ERROR(SEAICE_LOGGER("system")) << "ListAllFile access failed"
+            << " file path = " << path;
+        return;
+    }
+    DIR* dir = opendir(path.c_str());
+    if(dir == nullptr) {
+        SEAICE_LOG_ERROR(SEAICE_LOGGER("system")) << "ListAllFile opendir failed"
+                    << " file path = " << path;
+        return;
+    }
+    struct dirent* dp = nullptr;
+    while((dp = readdir(dir)) != nullptr) {
+        if(dp->d_type == DT_DIR) {
+            if(!strcmp(dp->d_name, ".")
+                || !strcmp(dp->d_name, "..")) {
+                continue;
+            }
+            ListAllFile(files, path + "/" + dp->d_name, subfix);
+        } else if(dp->d_type == DT_REG) {
+            std::string filename(dp->d_name);
+            if(subfix.empty()) {
+                files.push_back(path + "/" + filename);
+            } else {
+                if(filename.size() < subfix.size()) {
+                    continue;
+                }
+                if(filename.substr(filename.length() - subfix.size()) == subfix) {
+                    files.push_back(path + "/" + filename);
+                }
+            }
+        }
+    }
+    closedir(dir);
+}
+
 
 }//utils
 }//seaice
