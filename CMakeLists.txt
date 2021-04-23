@@ -25,6 +25,7 @@ set(CMAKE_CXX_FLAGS "-std=c++11 -pthread -rdynamic -lrt -Wl,--no-as-needed -ldl"
 
 set(SEAICE_SRC  
                 seaice/address.cpp
+                seaice/application.cpp
                 seaice/bytearray.cpp
                 seaice/config.cpp
                 seaice/config2.cpp
@@ -74,9 +75,9 @@ set(SEAICE_SRC
 #add_executable(testScheduler ${TESTSRC} ${SEAICE_SRC})
 #target_link_libraries(testScheduler /usr/local/lib/libyaml-cpp.so)
 
-set(TESTSRC  test/testIOM.cpp)
-add_executable(testIOM ${TESTSRC} ${SEAICE_SRC})
-target_link_libraries(testIOM /usr/local/lib/libyaml-cpp.so)
+#set(TESTSRC  test/testIOM.cpp)
+#add_executable(testIOM ${TESTSRC} ${SEAICE_SRC})
+#target_link_libraries(testIOM /usr/local/lib/libyaml-cpp.so)
 
 #set(TESTSRC  test/testTimer.cpp)
 #add_executable(testTimer ${TESTSRC} ${SEAICE_SRC})
@@ -94,9 +95,9 @@ target_link_libraries(testIOM /usr/local/lib/libyaml-cpp.so)
 #add_executable(test_forward ${TESTSRC} ${SEAICE_SRC})
 #target_link_libraries(test_forward /usr/local/lib/libyaml-cpp.so)
 
-set(TESTSRC  test/testAddr.cpp)
-add_executable(testAddr ${TESTSRC} ${SEAICE_SRC})
-target_link_libraries(testAddr /usr/local/lib/libyaml-cpp.so)
+#set(TESTSRC  test/testAddr.cpp)
+#add_executable(testAddr ${TESTSRC} ${SEAICE_SRC})
+#target_link_libraries(testAddr /usr/local/lib/libyaml-cpp.so)
 
 #set(TESTSRC  test/testSocket.cpp)
 #add_executable(testSocket ${TESTSRC} ${SEAICE_SRC})
@@ -118,25 +119,29 @@ target_link_libraries(test_tcp_server /usr/local/lib/libyaml-cpp.so)
 #add_executable(echo_server ${TESTSRC} ${SEAICE_SRC})
 #target_link_libraries(echo_server /usr/local/lib/libyaml-cpp.so)
 
-#set(TESTSRC  test/test_http_server.cpp)
-#add_executable(test_http_server ${TESTSRC} ${SEAICE_SRC})
-#target_link_libraries(test_http_server /usr/local/lib/libyaml-cpp.so)
+set(TESTSRC  test/test_http_server.cpp)
+add_executable(test_http_server ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_http_server /usr/local/lib/libyaml-cpp.so)
 
-set(TESTSRC  test/test_http_connection.cpp)
-add_executable(test_http_connection ${TESTSRC} ${SEAICE_SRC})
-target_link_libraries(test_http_connection /usr/local/lib/libyaml-cpp.so)
+#set(TESTSRC  test/test_http_connection.cpp)
+#add_executable(test_http_connection ${TESTSRC} ${SEAICE_SRC})
+#target_link_libraries(test_http_connection /usr/local/lib/libyaml-cpp.so)
 
-set(TESTSRC  test/test_daemon.cpp)
-add_executable(test_daemon ${TESTSRC} ${SEAICE_SRC})
-target_link_libraries(test_daemon /usr/local/lib/libyaml-cpp.so)
+#set(TESTSRC  test/test_daemon.cpp)
+#add_executable(test_daemon ${TESTSRC} ${SEAICE_SRC})
+#target_link_libraries(test_daemon /usr/local/lib/libyaml-cpp.so)
 
-set(TESTSRC  test/test_env.cpp)
-add_executable(test_env ${TESTSRC} ${SEAICE_SRC})
-target_link_libraries(test_env /usr/local/lib/libyaml-cpp.so)
+#set(TESTSRC  test/test_env.cpp)
+#add_executable(test_env ${TESTSRC} ${SEAICE_SRC})
+#target_link_libraries(test_env /usr/local/lib/libyaml-cpp.so)
 
 set(TESTSRC  test/test_config2.cpp)
 add_executable(test_config2 ${TESTSRC} ${SEAICE_SRC})
 target_link_libraries(test_config2 /usr/local/lib/libyaml-cpp.so)
+
+set(TESTSRC  test/test_application.cpp)
+add_executable(test_application ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_application /usr/local/lib/libyaml-cpp.so)
 
 # 指定编译器
 #set(cmake_c_flags_debug "-g -Wall)

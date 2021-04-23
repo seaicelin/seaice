@@ -190,6 +190,7 @@ public:
     void setAppender(std::shared_ptr<LogAppender> appender);
     void log(std::shared_ptr<LogEvent> event);
     void setFormatter(std::shared_ptr<LogFormatter> formatter);
+    void setFormatter(const std::string& pattern);
     void setLevel(LogLevel::Level level) {m_level = level;}
     void setName(string name) {m_name = name;}
     void setId(int id) {m_id = id;}
@@ -231,7 +232,7 @@ private:
 public:
     typedef std::shared_ptr<LogFormatter> ptr;
 
-    LogFormatter(string pattern = "%d{%Y-%m-%d %H:%M:%S}%T%f:%l%T[%p]%T[%t]%T[%c]%T%m")
+    LogFormatter(const string& pattern = "%d{%Y-%m-%d %H:%M:%S}%T%f:%l%T[%p]%T[%t]%T[%c]%T%m")
     : m_pattern(pattern) {
         init();
     }
@@ -252,9 +253,11 @@ public:
     void init();
     void format(stringstream& oss, LogEvent::ptr event);
     std::string getPattern() const {return m_pattern;}
+    bool isError() const {return m_error;}
 private:
     string m_pattern;
     std::vector<FormaterItem::ptr> m_items;
+    bool m_error = false;
 };
 
 class LogAppender
@@ -327,24 +330,11 @@ class LoggerMgr {
 public:
     typedef std::shared_ptr<LoggerMgr> ptr;
 
-    LoggerMgr() {
-//        loadLogConfig();
-        std::cout<<"loggerMgr"<<std::endl;
-    }
+    LoggerMgr();
+    ~LoggerMgr();
 
-    ~LoggerMgr() {
-#ifdef DEBUG_DESTROY
-        std::cout<<"~LoggerMgr"<<std::endl;
-#endif
-    }
+    static LoggerMgr::ptr getInstance();
 
-    static LoggerMgr::ptr getInstance() {
-        static LoggerMgr::ptr s_instance = nullptr;
-        if(s_instance == nullptr) {
-            s_instance = ptr(new LoggerMgr);
-        }
-        return s_instance;
-    }
     Logger::ptr LookupLogger(std::string loggerName);
     Logger::ptr getDefaultLogger();
     void addLogger(Logger::ptr logger);

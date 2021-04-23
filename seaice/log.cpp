@@ -51,6 +51,13 @@ void Logger::setFormatter(std::shared_ptr<LogFormatter> formatter) {
     }
 }
 
+void Logger::setFormatter(const std::string& pattern) {
+    LogFormatter::ptr fmt(new LogFormatter(pattern));
+    if(fmt && !fmt->isError()) {
+        setFormatter(fmt);
+    }
+}
+
 std::string Logger::toYamlString() const {
     YAML::Node node;
     node["id"] = m_id;
@@ -356,9 +363,11 @@ void LogFormatter::init() {
         index++;
     }
     if(state != 0 || index < strLen) {
-        cout<<"state = " << state << " str = " << m_pattern[index]
+        cout<<"formatter init error: state = " << state << " str = " << m_pattern[index]
             << " index = " << index << endl;
-        throw std::logic_error("logic error");;
+        m_error = true;
+        return;
+        //throw std::logic_error("logic error");;
     }
 
     for(auto it : items)
@@ -422,7 +431,11 @@ public:
             throw std::logic_error("log config id is null");
         }
         ld.id = node["id"].as<int>();
-        ld.level = LogLevel::fromString(node["level"].IsDefined() ? node["levle"].as<std::string>() : "");
+        if(node["level"].IsDefined()) {
+            std::string level = node["level"].as<std::string>();
+            //std::cout <<  << std::endl;
+            ld.level = LogLevel::fromString(level);
+        }
         if(node["formatter"].IsDefined()) {
             ld.formatter = node["formatter"].as<std::string>();
         }
@@ -491,11 +504,13 @@ public:
     }
 };
 
+
 seaice::ConfigVar<std::set<LoggerDefine> >::ptr g_log_defines =
     seaice::Config2::Lookup("loggers", std::set<LoggerDefine>(), "loggers config");
 
 struct LoggerInit{
     LoggerInit() {
+
         g_log_defines->addListener([](const std::set<LoggerDefine>& old_val,
                 const std::set<LoggerDefine>& new_val) {
             std::cout << "on_logger_conf_changed" << std::endl;
@@ -526,7 +541,9 @@ struct LoggerInit{
                     ap->setLevel(a.level);
                     if(!a.formatter.empty()){
                         LogFormatter::ptr fmt(new LogFormatter(a.formatter));
-                        ap->setFormatter(fmt);
+                        if(fmt && !fmt->isError()) {
+                            ap->setFormatter(fmt);
+                        }
                     }
                     logger->setAppender(ap);
                 }
@@ -539,12 +556,37 @@ struct LoggerInit{
                 }
             }
         });
-        YAML::Node root = YAML::LoadFile("/media/sf_Iceserver/vsclient/seaice/build/bin/conf/log.yml");
-        seaice::Config2::LoadFromYaml(root);
+        //std::cout<<g_log_defines->toString();
     }
 };
 
 static LoggerInit __log_init;
+
+LoggerMgr::LoggerMgr() {
+//        loadLogConfig();
+    seaice::init_hook();
+
+    m_logger = Logger::ptr(new Logger);
+    m_logger->setAppender(LogAppender::ptr(new StdoutLogAppender));
+    m_logger->setAppender(LogAppender::ptr(new FileLogAppender));
+    YAML::Node root = YAML::LoadFile("/media/sf_Iceserver/vsclient/seaice/build/bin/conf/test.yml");
+    seaice::Config2::LoadFromYaml(root);
+    std::cout<<"loggerMgr"<<std::endl;
+}
+
+LoggerMgr::~LoggerMgr() {
+#ifdef DEBUG_DESTROY
+    std::cout<<"~LoggerMgr"<<std::endl;
+#endif
+}
+
+LoggerMgr::ptr LoggerMgr::getInstance() {
+    static LoggerMgr::ptr s_instance = nullptr;
+    if(s_instance == nullptr) {
+        s_instance = ptr(new LoggerMgr);
+    }
+    return s_instance;
+}
 
 void LoggerMgr::addLogger(Logger::ptr logger){
     m_map[logger->getName()] = logger;
@@ -572,16 +614,11 @@ Logger::ptr LoggerMgr::LookupLogger(string loggerName) {
 }
 
 Logger::ptr LoggerMgr::getDefaultLogger() {
+    assert(m_logger);
     return m_logger;
 }
 
 void LoggerMgr::loadLogConfig() {
-
-    seaice::init_hook();
-
-    m_logger = Logger::ptr(new Logger);
-    m_logger->setAppender(LogAppender::ptr(new StdoutLogAppender));
-    m_logger->setAppender(LogAppender::ptr(new FileLogAppender));
 
     seaice::Config::ptr logConfigPtr = seaice::Config::ptr(new seaice::Config);
     if(!logConfigPtr->m_loggers.empty()) {

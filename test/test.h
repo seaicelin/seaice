@@ -29,3 +29,7 @@
 #include "../seaice/tcpserver.h"
 #include "../seaice/bytearray.h"
 #include "ipcdefv01.h"
+#include "../seaice/daemon.h"
+#include "../seaice/env.h"
+#include <fstream>
+#include "../seaice/config2.h"

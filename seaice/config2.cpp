@@ -41,6 +41,7 @@ void Config2::LoadFromYaml(const YAML::Node& root) {
         if(key.empty()) {
             continue;
         }
+
         std::transform(key.begin(), key.end(), key.begin(), ::tolower);
         ConfigVarBase::ptr var = LookupBase(key);
         if(var) {

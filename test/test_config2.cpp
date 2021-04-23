@@ -11,8 +11,8 @@ static seaice::Logger::ptr logger = SEAICE_LOGGER("system");
 seaice::ConfigVar<int>::ptr g_int_value_config = 
     seaice::Config2::Lookup("system.port", (int)8080, "system port");
 
-seaice::ConfigVar<float>::ptr g_int_value_config2 = 
-    seaice::Config2::Lookup("system.port", (float)8080, "system port");
+//seaice::ConfigVar<float>::ptr g_int_value_config2 = 
+//    seaice::Config2::Lookup("system.port", (float)8080, "system port");
 
 seaice::ConfigVar<float>::ptr g_float_value_config = 
     seaice::Config2::Lookup("system.value", (float)1.2f, "system value");
@@ -195,14 +195,35 @@ void test_class() {
 
 }
 
+void test_log() {
+    static seaice::Logger::ptr logger = SEAICE_LOGGER("system");
+    SEAICE_LOG_DEBUG(logger) << " hello log ";
+    std::cout << seaice::LoggerMgr::getInstance()->toYamlString() << std::endl;
+    YAML::Node root = YAML::LoadFile("/media/sf_Iceserver/vsclient/seaice/build/bin/conf/log.yml");
+    seaice::Config2::LoadFromYaml(root);
+    //std::cout << "=================" << std::endl;
+    //std::cout << seaice::LoggerMgr::getInstance()->toYamlString() << std::endl;
+    //std::cout << "=================" << std::endl;
+    //std::cout << root << std::endl;
+    logger = SEAICE_LOGGER("system");
+    //logger->setFormatter("%d - %m%n");
+    SEAICE_LOG_DEBUG(logger) << " hello log2 ";
+    logger = SEAICE_LOGGER("system");
+    //logger->setFormatter("%d - %m%n");
+    SEAICE_LOG_DEBUG(logger) << " hello log2 ";
+    logger = SEAICE_LOGGER("root");
+    SEAICE_LOG_DEBUG(logger) << " hello log3 ";
+}
+
 int main(int argc, char *argv[])
 {
     seaice::EnvMgr::GetInstance()->init(argc, argv);
-    //testLoadYaml();
-    //sleep(5);
-    //testLoadYaml();
-    //test_yaml();
-    //test_config();
+    testLoadYaml();
+    sleep(5);
+    testLoadYaml();
+    test_yaml();
+    test_config();
     test_class();
+    test_log();
     return 0;
 }

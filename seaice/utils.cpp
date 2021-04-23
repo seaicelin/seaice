@@ -2,6 +2,7 @@
 #include <sys/syscall.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <signal.h>
 #include <iostream>
 #include <cstring>
 #include <dirent.h>
@@ -171,6 +172,65 @@ void FSUtil::ListAllFile(std::vector<std::string>& files
         }
     }
     closedir(dir);
+}
+
+bool FSUtil::Mkdir(const std::string& path) {
+    //0 success, -1 failed
+    if(path.empty()) {
+        cout << "FSUtil::MkDir error: dirname is empty" << endl;
+        return false;
+    }
+    //默认在当前目录下创建文件
+    //if(path.find_first_of("/") == string::npos) {
+        //return ret;
+    //}
+
+#define MODE (S_IRWXU | S_IRWXG | S_IRWXO)
+    int startPos = 0;
+    string fileName = "";
+    string folderName = "";
+    if(path[0] == '/') {
+        ++startPos;
+    }
+    string::size_type pos = path.find_first_of("/", startPos);
+    while(pos != string::npos) {
+        folderName = path.substr(0, pos);
+        //cout <<"folderName = " << folderName << endl;
+        if(!seaice::utils::IsDirExist(folderName.c_str())) {
+            int rt = mkdir(folderName.c_str(), MODE);
+            if(rt != 0) {
+                cout <<"mkdir failed" << endl;
+                return false;
+            }
+        }
+        startPos = pos + 1;
+        pos = path.find_first_of("/", startPos);
+    }
+#undef MODE
+    return true;
+}
+
+bool FSUtil::IsRunningPidfile(const std::string& pidfile) {
+    struct stat lst;
+    if(lstat(pidfile.c_str(), &lst) != 0) {
+        return false;
+    }
+    std::ifstream ifs(pidfile);
+    std::string line;
+    if(!ifs || !std::getline(ifs, line)) {
+        return false;
+    }
+    if(line.empty()) {
+        return false;
+    }
+    pid_t pid = atoi(line.c_str());
+    if(pid <= 1) {
+        return false;
+    }
+    if(kill(pid, 0) != 0) {
+        return false;
+    }
+    return true;
 }
 
 
