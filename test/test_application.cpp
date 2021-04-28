@@ -4,7 +4,7 @@
 int main(int argc, char *argv[])
 {
     seaice::Application app;
-    if(!app.init(argc, argv)) {
+    if(app.init(argc, argv)) {
         app.run();
     }
     return 0;

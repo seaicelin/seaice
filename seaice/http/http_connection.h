@@ -29,6 +29,7 @@ struct HttpResult{
         CREATE_SOCKET_ERROR = 7,
         POOL_GET_CONNECTION = 8,
         POOL_INVALID_CONNECTION = 9,
+        INVALID_WEBSOCK_STATUS = 10,
     };
 
     HttpResult(int _result

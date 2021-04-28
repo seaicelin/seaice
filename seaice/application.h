@@ -16,6 +16,7 @@ public:
     int run();
 private:
     int main(int argc, char** argv);
+    void run_fiber();
 private:
     int m_argc = 0;
     char** m_argv = nullptr;

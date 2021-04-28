@@ -31,6 +31,19 @@ struct HttpServerConf {
                 && name == rhs.name
                 && address == rhs.address;
     }
+
+    std::string toString() const {
+        stringstream ss;
+        ss << "[keepalive = " << keepalive
+           << ", timeout = " << timeout
+           << ", name = " << name
+           << ", address = ";
+        for(auto& i : address) {
+           ss << i << ",";
+        }
+        ss << "]";
+        return ss.str();
+    }
 };
 
 template<>
@@ -128,6 +141,8 @@ bool Application::init(int argc, char** argv) {
             << errno << " err str = " << strerror(errno);
         return false;
     }
+    SEAICE_LOG_ERROR(logger) << "application create server work path: "
+        << g_server_work_path->getValue();
     return true;
 }
 
@@ -140,6 +155,7 @@ int Application::run() {
 
 int Application::main(int argc, char** argv){
 
+    //把当前进程号写进文件
     std::string pidfile = g_server_work_path->getValue()
                         + "/" + g_service_pid_file->getValue();
     std::ofstream ofs(pidfile);
@@ -149,12 +165,22 @@ int Application::main(int argc, char** argv){
     }
     ofs << getpid();
 
-    seaice::IOManager iom(2);
+    seaice::IOManager iom(2, "server IOManager");
     iom.start();
-
+    iom.schedule(std::bind(&Application::run_fiber, this));
+    iom.stop();
+    return 0;
+}
+//之前直接在main函数里面创建 socket,
+//但是hook没有开，所以在 accept 卡住了
+//所以要放在 iom 的schedule 里面去做
+//统一放到协程框架里面去做
+void Application::run_fiber() {
+    //启动 服务器
     auto httpServerConfs = g_http_server_config->getValue();
-    std::vector<Address::ptr> addrVec;
     for(auto& conf : httpServerConfs) {
+        std::vector<Address::ptr> addrVec;
+        SEAICE_LOG_DEBUG(logger) << conf.toString();
         for(auto& a : conf.address) {
             if(a.find(":") == std::string::npos) {
                 SEAICE_LOG_ERROR(logger) << "conf invalid address:"
@@ -162,6 +188,7 @@ int Application::main(int argc, char** argv){
                 continue;
             }
             auto addr = seaice::Address::LookupAnyIPAddress(a);
+            std::cout << *addr << std::endl;
             if(addr) {
                 addrVec.push_back(addr);
             }
@@ -174,15 +201,12 @@ int Application::main(int argc, char** argv){
             for(auto f : fails) {
                 SEAICE_LOG_ERROR(logger) << "bind address faild at: "
                     << *f;
-                return -1;
+                _exit(0);
             }
         }
         server->start();
         m_servers.push_back(server);
     }
-
-    iom.stop();
-    return 0;
 }
 
 }

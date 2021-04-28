@@ -3,6 +3,8 @@
 
 #include "address.h"
 #include <memory>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
 
 namespace seaice{
 
@@ -33,7 +35,7 @@ public:
     static Socket::ptr CreateUinxUDPSocket();
 
     Socket(int family, int type, int protocol);
-    ~Socket();
+    virtual ~Socket();
 
     uint64_t getSendTimerout();
     void setSendTimeout(uint64_t v);
@@ -85,6 +87,42 @@ protected:
 };
 
 std::ostream& operator<<(std::ostream& os, const Socket& socket);
+
+class SSLScoket : public Socket {
+public:
+    typedef std::shared_ptr<SSLScoket> ptr;
+
+    static SSLScoket::ptr CreateTCP(Address::ptr address);
+    static SSLScoket::ptr CreateTCPSocket();
+    static SSLScoket::ptr CreateTCPSocket6();
+
+    SSLScoket(int family, int type, int protocol);
+    virtual ~SSLScoket();
+
+    virtual bool bind(const Address::ptr addr) override;
+    SSLScoket::ptr accept();
+    virtual bool connect(const Address::ptr addr, uint64_t timeout_ms = -1) override;
+    virtual bool listen(int backlog = 1000) override;
+    virtual bool close() override;
+    virtual int send(const void* buffer, size_t len, int flags = 0) override;
+    virtual int send(const iovec* buffers, size_t len, int flags = 0) override;
+    virtual int sendTo(const void* buffer, size_t len, const Address::ptr to, int flags = 0) override;
+    virtual int sendTo(const iovec* buffers, size_t len, const Address::ptr to, int flags = 0) override;
+    virtual int recv(void* buffer, size_t len, int flags = 0) override;
+    virtual int recv(iovec* buffers, size_t len, int flags = 0) override;
+    virtual int recvFrom(void* buffer, size_t len, Address::ptr from, int flags = 0) override;
+    virtual int recvFrom(iovec* buffers, size_t len, Address::ptr from, int flags = 0) override;
+    virtual std::ostream& dump(std::ostream& os) const;
+    virtual std::string toString() const;
+
+    bool loadCertificates(const std::string& cert_file, const std::string& key_file);
+protected:
+    virtual bool init(int sock) override;
+
+private:
+    std::shared_ptr<SSL>     m_ssl;
+    std::shared_ptr<SSL_CTX> m_ctx;
+};
 
 }
 #endif

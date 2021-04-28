@@ -3,6 +3,7 @@
 #include "iomanager.h"
 #include "log.h"
 #include "socket.h"
+#include "macro.h"
 #include <netinet/tcp.h>
 #include <sstream>
 #include <sys/socket.h>
@@ -33,6 +34,7 @@ Socket::ptr Socket::CreateTCPSocket6() {
     Socket::ptr sock(new Socket(Socket::IPv6, TCP, 0));
     return sock;
 }
+
 Socket::ptr Socket::CreateUDPSocket() {
     Socket::ptr sock(new Socket(Socket::IPv4, UDP, 0));
     sock->newSock();
@@ -443,5 +445,200 @@ bool Socket::init(int sock) {
 std::ostream& operator<<(std::ostream& os, const Socket& socket) {
     return socket.dump(os);
 }
+
+namespace {
+    /* SSL 库初始化，参看 ssl-server.c 代码 */
+    struct SSL_Init {
+        SSL_Init() {
+            SSL_library_init(); //SSL库初始化
+            OpenSSL_add_all_algorithms(); //载入 SSL 算法
+            SSL_load_error_strings(); //载入SSL错误信息
+        }
+    };
+}
+
+static SSL_Init s_SSL_init;
+
+SSLScoket::ptr SSLScoket::CreateTCP(Address::ptr address) {
+    SSLScoket::ptr sock(new SSLScoket(address->getFamily(), TCP, 0));
+    return sock;
+}
+
+SSLScoket::ptr SSLScoket::CreateTCPSocket() {
+    SSLScoket::ptr sock(new SSLScoket(Socket::IPv4, TCP, 0));
+    return sock;
+}
+
+SSLScoket::ptr SSLScoket::CreateTCPSocket6() {
+    SSLScoket::ptr sock(new SSLScoket(Socket::IPv6, TCP, 0));
+    return sock;
+}
+
+SSLScoket::SSLScoket(int family, int type, int protocol) 
+    : Socket(family, type, protocol){
+}
+
+SSLScoket::~SSLScoket() {
+}
+
+bool  SSLScoket::bind(const Address::ptr addr) {
+    return Socket::bind(addr);
+}
+
+SSLScoket::ptr SSLScoket::accept() {
+    SSLScoket::ptr sock(new SSLScoket(m_family, m_type, m_protocol));
+    int newsock = ::accept(m_sock, NULL, NULL);
+    if(newsock == -1) {
+        SEAICE_LOG_ERROR(logger) << "accept(" << m_sock << ")" <<
+            " errno = " << errno << " errno str = " << strerror(errno);
+    }
+    sock->m_ctx = m_ctx; //load certificate 时候产生一个 ctx
+    if(sock->init(newsock)) {
+        m_ssl.reset(SSL_new(m_ctx.get()), SSL_free);
+        SSL_set_fd(m_ssl.get(), m_sock);
+        if(SSL_accept(m_ssl.get()) == 1) {
+            return sock;
+        }
+    }
+    return nullptr;
+}
+
+bool  SSLScoket::connect(const Address::ptr addr, uint64_t timeout_ms) {
+    bool rt = Socket::connect(addr, timeout_ms);
+    if(rt) {
+        m_ctx.reset(SSL_CTX_new(SSLv23_client_method()), SSL_CTX_free);
+        m_ssl.reset(SSL_new(m_ctx.get()), SSL_free);
+        SSL_set_fd(m_ssl.get(), m_sock);
+        rt = (SSL_connect(m_ssl.get()) == 1);
+    }
+    return rt;
+}
+
+bool SSLScoket::listen(int backlog) {
+    return Socket::listen(backlog);
+}
+
+bool SSLScoket::close() {
+    return Socket::close();
+}
+
+int SSLScoket::send(const void* buffer, size_t len, int flags) {
+    if(m_ssl) {
+        return SSL_write(m_ssl.get(), buffer, len);
+    }
+    return -1;
+}
+
+int SSLScoket::send(const iovec* buffers, size_t len, int flags) {
+    if(!m_ssl) {
+        return -1;
+    }
+    int total = 0;
+    for(size_t i = 0; i < len; i++) {
+        int tmp = SSL_write(m_ssl.get(), buffers[i].iov_base, buffers[i].iov_len);
+        if(tmp <= 0) {
+            return tmp;
+        }
+        total += tmp;
+        if(tmp != (int)buffers[i].iov_len) {
+            break;
+        }
+    }
+    return total;
+}
+
+int SSLScoket::sendTo(const void* buffer, size_t len, const Address::ptr to, int flags) {
+    SEAICE_ASSERT(false);
+    return -1;
+}
+
+int SSLScoket::sendTo(const iovec* buffers, size_t len, const Address::ptr to, int flags) {
+    SEAICE_ASSERT(false);
+    return -1;
+}
+
+int SSLScoket::recv(void* buffer, size_t len, int flags) {
+    if(m_ssl) {
+        return SSL_read(m_ssl.get(), buffer, len);
+    }
+    return -1;
+}
+
+int SSLScoket::recv(iovec* buffers, size_t len, int flags) {
+    if(!m_ssl) {
+        return -1;
+    }
+    int total = 0;
+    for(size_t i = 0; i < len; i++) {
+        int tmp = SSL_read(m_ssl.get(), buffers[i].iov_base, buffers[i].iov_len);
+        if(tmp <= 0) {
+            return tmp;
+        }
+        total += tmp;
+        if(tmp != (int)buffers[i].iov_len) {
+            break;
+        }
+    }
+    return total;
+}
+
+int SSLScoket::recvFrom(void* buffer, size_t len, Address::ptr from, int flags) {
+    SEAICE_ASSERT(false);
+    return -1;
+}
+
+int SSLScoket::recvFrom(iovec* buffers, size_t len, Address::ptr from, int flags) {
+    SEAICE_ASSERT(false);
+    return -1;
+}
+
+std::ostream& SSLScoket::dump(std::ostream& os) const {
+    os << "[SSLScoket sock = " << m_sock
+       << " is_connected = " << m_connected
+       << " family = " << m_family
+       << " type = " << m_type
+       << " protocol = " << m_protocol;
+    if(m_localAddr) {
+        os << " local addr = " << m_localAddr->toString();
+    }
+    if(m_remoteAddr) {
+        os << " remote addr = " << m_remoteAddr->toString();
+    }
+    os << "]";
+    return os;
+}
+
+std::string SSLScoket::toString() const {
+    stringstream ss;
+    dump(ss);
+    return ss.str();
+}
+
+bool SSLScoket::loadCertificates(const std::string& cert_file, const std::string& key_file) {
+    m_ctx.reset(SSL_CTX_new(SSLv23_server_method()), SSL_CTX_free);
+    if(SSL_CTX_use_certificate_file(m_ctx.get(), cert_file.c_str(), SSL_FILETYPE_PEM) != 1) {
+        SEAICE_LOG_ERROR(logger) << "SSL_CTX_use_certificate_file(" << cert_file
+            << ") failed";
+        return false;
+    }
+    if(SSL_CTX_use_PrivateKey_file(m_ctx.get(), key_file.c_str(), SSL_FILETYPE_PEM) != 1) {
+        SEAICE_LOG_ERROR(logger) << "SSL_CTX_use_PrivateKey_file(" << key_file
+            << ") failed";
+        return false;
+    }
+    if(SSL_CTX_check_private_key(m_ctx.get()) != 1) {
+        SEAICE_LOG_ERROR(logger) << "SSL_CTX_check_private_key cert_file" << cert_file
+         << "key_file = " << key_file << " failed";
+        return false;
+    }
+    return true;
+}
+
+bool SSLScoket::init(int sock) {
+    return Socket::init(sock);
+
+}
+
+
 
 }

@@ -194,7 +194,7 @@ public:
     void setLevel(LogLevel::Level level) {m_level = level;}
     void setName(string name) {m_name = name;}
     void setId(int id) {m_id = id;}
-    const string getName() const { return m_name;}
+    const string& getName() const { return m_name;}
     std::string toYamlString() const;
 private:
     //LogEvent::ptr m_event;

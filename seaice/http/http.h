@@ -135,7 +135,7 @@ enum class HttpMethod {
 HttpMethod StringToHttpMethod(const std::string& m);
 HttpMethod CharsToHttpMethod(const char* m);
 const char* HttpMethodToString(const HttpMethod& m);
-const char* HttpStatusToString(const HttpMethod& s);
+const char* HttpStatusToString(const HttpStatus& s);
 
 struct CaseInsensitiveLess{
     bool operator()(const std::string& lhs, const std::string& rhs) const;

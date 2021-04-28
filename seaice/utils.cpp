@@ -44,7 +44,7 @@ int createFileDir(const std::string& path)
 #define MODE (S_IRWXU | S_IRWXG | S_IRWXO)
 
     //int pathLen = path.size();
-    int startPos = 0;
+    string::size_type startPos = 0;
     string fileName = "";
     string folderName = "";
     if(path[0] == '/') {
@@ -186,14 +186,15 @@ bool FSUtil::Mkdir(const std::string& path) {
     //}
 
 #define MODE (S_IRWXU | S_IRWXG | S_IRWXO)
-    int startPos = 0;
+    string::size_type startPos = 0;
     string fileName = "";
     string folderName = "";
     if(path[0] == '/') {
         ++startPos;
     }
     string::size_type pos = path.find_first_of("/", startPos);
-    while(pos != string::npos) {
+    string::size_type pathLen = path.size();
+    while(startPos < pathLen) {
         folderName = path.substr(0, pos);
         //cout <<"folderName = " << folderName << endl;
         if(!seaice::utils::IsDirExist(folderName.c_str())) {
@@ -203,8 +204,14 @@ bool FSUtil::Mkdir(const std::string& path) {
                 return false;
             }
         }
+        //cout <<"startPos = " << startPos << endl;
+        //cout <<"Pos = " << pos << endl;
+        //cout <<"pathLen = " << pathLen << endl;
         startPos = pos + 1;
         pos = path.find_first_of("/", startPos);
+        if(pos == std::string::npos) {
+            pos = pathLen;
+        }
     }
 #undef MODE
     return true;

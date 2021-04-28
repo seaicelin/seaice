@@ -85,21 +85,26 @@ struct timer_info{
 template<typename Fun, typename... Args>
 static ssize_t do_io(int fd, Fun fun, const char* hook_fun_name,
         uint32_t event, int timeout_so, Args&&... args) {
+    //SEAICE_LOG_DEBUG(SEAICE_LOGGER("system")) << "do_io " << hook_fun_name;
     if(!seaice::is_hook_enable()) {
+        //std::cout<< "do_io " << hook_fun_name << " hook not enable" <<std::endl;
         return fun(fd, std::forward<Args>(args)...);
     }
 
     seaice::FdCtx::ptr ctx = seaice::FdMgr::GetInstance()->get(fd);
     if(!ctx) {
+        //std::cout<< "do_io " << hook_fun_name << " ctx = nullptr" <<std::endl;
         return fun(fd, std::forward<Args>(args)...);
     }
 
     if(ctx->isClose()) {
+        //std::cout<< "do_io " << hook_fun_name << " ctx isClose" <<std::endl;
         errno = EBADF;
         return -1;
     }
 
     if(!ctx->isSocket() || ctx->getUserNonBlock()) {
+        std::cout<< "do_io " << hook_fun_name <<  " ctx not socket" <<std::endl;
         return fun(fd, std::forward<Args>(args)...);
     }
 
@@ -109,8 +114,8 @@ static ssize_t do_io(int fd, Fun fun, const char* hook_fun_name,
 retry:
     SEAICE_LOG_DEBUG(logger) << hook_fun_name;
     ssize_t n = fun(fd, std::forward<Args>(args)...);
-    //SEAICE_LOG_DEBUG(logger) << "do_io fun name " << hook_fun_name <<
-    //     " n = " << n << " timeout = " << to;
+    SEAICE_LOG_DEBUG(logger) << "do_io fun name " << hook_fun_name <<
+         " n = " << n << " timeout = " << to;
     while(n == -1 && errno == EINTR) {
         n = fun(fd, std::forward<Args>(args)...);
     }
@@ -254,6 +259,7 @@ int connect(int sockfd, const struct sockaddr *addr,
 
 
 int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen) {
+    SEAICE_LOG_DEBUG(logger) << "hook accept";
     int fd = do_io(sockfd, accept_f, "accept", seaice::IOManager::READ, SO_RCVTIMEO, addr, addrlen);
     if(fd >= 0) {
         seaice::FdMgr::GetInstance()->get(fd, true);

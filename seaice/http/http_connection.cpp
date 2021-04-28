@@ -9,7 +9,7 @@ namespace http{
 static Logger::ptr logger = SEAICE_LOGGER("system");
 
 HttpConnection::HttpConnection(Socket::ptr sock, bool owner) 
-: SocketStream(sock, owner) {
+    : SocketStream(sock, owner) {
 }
 
 HttpResponse::ptr HttpConnection::recvResponse() {
