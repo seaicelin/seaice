@@ -252,11 +252,15 @@ public:
     bool isClose() const {return m_close;}
     void setClose(bool v) {m_close = v;}
 
+    bool isWebSock() const {return m_websock;}
+    void setWebSock(bool v) {m_websock = v;}
+
 private:
     HttpMethod m_method;
     HttpStatus m_status;
     uint8_t m_versoin;
     bool m_close;
+    bool m_websock = false;
 
     std::string m_path;
     std::string m_query;

@@ -13,15 +13,16 @@
 6. 定义创建 connection 的静态方法
 */
 namespace seaice {
+namespace http {
 
-class WSConnection : public HttpConnection {
+class WSConnection : public http::HttpConnection {
 public:
     typedef std::shared_ptr<WSConnection> ptr;
 
-    static std::pair<HttpResult::ptr, WSConnection::ptr> Create(const std::string& url
+    static std::pair<http::HttpResult::ptr, WSConnection::ptr> Create(const std::string& url
                                     , uint64_t timeout_ms
                                     , const std::map<std::string, std::string>& headers = {});
-    static std::pair<HttpResult::ptr, WSConnection::ptr> Create( Uri::ptr uri
+    static std::pair<http::HttpResult::ptr, WSConnection::ptr> Create(Uri::ptr uri
                                     , uint64_t timeout_ms
                                     , const std::map<std::string, std::string>& headers = {});
 
@@ -29,6 +30,7 @@ public:
     ~WSConnection();
 
     int sendMessage(WSFrameMessage::ptr message, bool fin = true);
+    int sendMessage(std::string msg, int opcode = WSFrameHead::TEXT_FRAME, bool fin = true);
     WSFrameMessage::ptr recvMessage();
     int sendPint();
     int sendPong();
@@ -36,6 +38,6 @@ public:
 };
 
 
-
+}
 }
 #endif

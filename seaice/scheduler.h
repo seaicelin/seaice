@@ -74,6 +74,7 @@ public:
 
     static Scheduler* getThis();
     const std::string& getName() const { return m_name;}
+    std::ostream& dump(std::ostream& os) const;
 
     template<typename FiberOrCb>
     bool schedule(FiberOrCb fc, int threadId = -1) {

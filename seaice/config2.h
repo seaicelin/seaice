@@ -197,7 +197,7 @@ template<typename T>
 class LexicalCast<std::map<std::string, T>, std::string>
 {
 public:
-    std::string operator()(std::map<std::string, T>& v) {
+    std::string operator()(const std::map<std::string, T>& v) {
         YAML::Node node(YAML::NodeType::Map);
         for(auto& i : v) {
             node[i.first] = YAML::Load(LexicalCast<T, std::string>()(i.second));

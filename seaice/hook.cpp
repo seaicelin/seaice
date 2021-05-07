@@ -382,7 +382,7 @@ int fcntl(int fd, int cmd, ... /* arg */ ) {
                 if(ctx->getSysNonBlock()) {
                     arg |= O_NONBLOCK;
                 } else {
-                    arg & ~O_NONBLOCK;
+                    arg &= ~O_NONBLOCK;
                 }
                 return fcntl_f(fd, cmd, arg);
             }

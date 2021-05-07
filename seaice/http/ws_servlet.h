@@ -10,14 +10,15 @@
 3. 定义 websock 关闭连接的回调， on_close
 4. 定义 dispatcher
 */
-namespace seaice{
+namespace seaice {
+namespace http {
 
 class WSServlet : public Servlet
 {
 public:
     typedef std::shared_ptr<WSServlet> ptr;
     WSServlet(const std::string& name);
-    ~WSServlet();
+    virtual ~WSServlet();
 
     virtual void onConnect(HttpRequest::ptr req, WSSession::ptr session) = 0;
     virtual void handle(HttpRequest::ptr req, WSFrameMessage::ptr message
@@ -32,9 +33,9 @@ public:
 };
 
 
-class FunctionWSServlet : public WSServlet {
+class WSFunctionServlet : public WSServlet {
 public:
-    typedef std::shared_ptr<FunctionWSServlet> ptr;
+    typedef std::shared_ptr<WSFunctionServlet> ptr;
     typedef std::function<void(HttpRequest::ptr req
                             , WSSession::ptr session)> ConnectCallback;
     typedef std::function<void(HttpRequest::ptr req
@@ -43,9 +44,11 @@ public:
     typedef std::function<void(HttpRequest::ptr req
                             , WSSession::ptr session)> CloseCallback;
 
-    FunctionWSServlet(HandleCallback handle_cb
-                    , ConnectCallback& connect_cb = nullptr
+    WSFunctionServlet(HandleCallback handle_cb
+                    , ConnectCallback connect_cb = nullptr
                     , CloseCallback close_cb = nullptr);
+
+    virtual ~WSFunctionServlet(){}
 
     virtual void onConnect(HttpRequest::ptr req
                             , WSSession::ptr session) override;
@@ -55,8 +58,8 @@ public:
     virtual void onClose(HttpRequest::ptr req
                         , WSSession::ptr session) override;
 private:
-    ConnectCallback m_connectCb;
     HandleCallback m_handleCb;
+    ConnectCallback m_connectCb;
     CloseCallback m_closeCb;
 };
 
@@ -67,17 +70,18 @@ public:
 
     WSServletDispatcher();
     void addServlet(const std::string& uri
-                , FunctionWSServlet::HandleCallback handlecb
-                , FunctionWSServlet::ConnectCallback connect_cb = nullptr;
-                , FunctionWSServlet::CloseCallback close_cb = nullptr);
+                , WSFunctionServlet::HandleCallback handle_cb
+                , WSFunctionServlet::ConnectCallback connect_cb = nullptr
+                , WSFunctionServlet::CloseCallback close_cb = nullptr);
     void addGlobServlet(const std::string& uri
-                , FunctionWSServlet::HandleCallback handlecb
-                , FunctionWSServlet::ConnectCallback connect_cb = nullptr
-                , FunctionWSServlet::CloseCallback close_cb = nullptr);
-    WSServlet::prt getServlet(const std::string& uri);
+                , WSFunctionServlet::HandleCallback handle_cb
+                , WSFunctionServlet::ConnectCallback connect_cb = nullptr
+                , WSFunctionServlet::CloseCallback close_cb = nullptr);
+    WSServlet::ptr getServlet(const std::string& uri);
+};
+
+
+
 }
-
-
-
 }
 #endif

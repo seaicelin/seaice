@@ -38,6 +38,7 @@ set(SEAICE_SRC
                 seaice/config.cpp
                 seaice/config2.cpp
                 seaice/daemon.cpp
+                seaice/ds/cache_status.cpp
                 seaice/env.cpp
                 seaice/fd_manager.cpp
                 seaice/fiber.cpp
@@ -50,8 +51,14 @@ set(SEAICE_SRC
                 seaice/http/http_session.cpp
                 seaice/http/http_server.cpp
                 seaice/http/servlet.cpp
+                seaice/http/ws_connection.cpp
+                seaice/http/ws_servlet.cpp
+                seaice/http/ws_server.cpp
+                seaice/http/ws_session.cpp
                 seaice/iomanager.cpp
                 seaice/log.cpp
+                seaice/library.cpp
+                seaice/module.cpp
                 seaice/mutex.cpp
                 seaice/scheduler.cpp
                 seaice/socket.cpp
@@ -61,7 +68,9 @@ set(SEAICE_SRC
                 seaice/thread.cpp
                 seaice/timer.cpp
                 seaice/utils.cpp
-                seaice/uri.cpp)
+                seaice/uri.cpp
+                seaice/util/hash_util.cpp
+                seaice/worker.cpp)
 
 #set(TESTSRC  test/testLog.cpp)
 #add_executable(testlog ${TESTSRC} ${SEAICE_SRC})
@@ -151,9 +160,21 @@ set(TESTSRC  test/test_application.cpp)
 add_executable(test_application ${TESTSRC} ${SEAICE_SRC})
 target_link_libraries(test_application ${LINK_LIB})
 
+set(TESTSRC  test/test_ws_client.cpp)
+add_executable(test_ws_client ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_ws_client ${LINK_LIB})
+
+set(TESTSRC  test/test_ws_server.cpp)
+add_executable(test_ws_server ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_ws_server ${LINK_LIB})
+
 set(TESTSRC  test/test.cpp)
 add_executable(test ${TESTSRC} ${SEAICE_SRC})
 target_link_libraries(test ${LINK_LIB})
+
+set(TESTSRC  test/test_worker.cpp)
+add_executable(test_worker ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_worker ${LINK_LIB})
 
 
 # 指定编译器

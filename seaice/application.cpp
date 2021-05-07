@@ -19,70 +19,9 @@ static seaice::ConfigVar<std::string>::ptr g_service_pid_file =
                             , std::string("seaice.pid")
                             , "server pid file");
 
-struct HttpServerConf {
-    std::vector<std::string> address;
-    int keepalive = 0;
-    int timeout = 1000 * 60;
-    std::string name = "unknow";
-
-    bool operator==(const HttpServerConf& rhs) const {
-        return keepalive == rhs.keepalive
-                && timeout == rhs.timeout
-                && name == rhs.name
-                && address == rhs.address;
-    }
-
-    std::string toString() const {
-        stringstream ss;
-        ss << "[keepalive = " << keepalive
-           << ", timeout = " << timeout
-           << ", name = " << name
-           << ", address = ";
-        for(auto& i : address) {
-           ss << i << ",";
-        }
-        ss << "]";
-        return ss.str();
-    }
-};
-
-template<>
-class LexicalCast<std::string, HttpServerConf> {
-public:
-    HttpServerConf operator()(const std::string& v) {
-        YAML::Node node = YAML::Load(v);
-        HttpServerConf conf;
-        conf.keepalive = node["keepalive"].as<int>(conf.keepalive);
-        conf.timeout = node["timeout"].as<int>(conf.timeout);
-        conf.name = node["name"].as<std::string>(conf.name);
-        for(size_t i = 0; i < node["address"].size(); i++) {
-            conf.address.push_back(node["address"][i].as<std::string>());
-        }
-        return conf;
-    }
-};
-
-template<>
-class LexicalCast<HttpServerConf, std::string>
-{
-public:
-    std::string operator()(const HttpServerConf& conf) {
-        YAML::Node node;
-        node["keepalive"] = conf.keepalive;
-        node["timeout"] = conf.timeout;
-        node["name"] = conf.name;
-        for(auto& i : conf.address) {
-            node["address"].push_back(i);
-        }
-        std::stringstream ss;
-        ss << node;
-        return ss.str();
-    }
-};
-
-seaice::ConfigVar<std::vector<HttpServerConf> >::ptr g_http_server_config = 
-    seaice::Config2::Lookup("http_server"
-                            , std::vector<HttpServerConf>()
+seaice::ConfigVar<std::vector<TcpServerConf> >::ptr g_server_config = 
+    seaice::Config2::Lookup("servers"
+                            , std::vector<TcpServerConf>()
                             , "http server config");
 
 Application* Application::s_instance = nullptr;
@@ -177,7 +116,7 @@ int Application::main(int argc, char** argv){
 //统一放到协程框架里面去做
 void Application::run_fiber() {
     //启动 服务器
-    auto httpServerConfs = g_http_server_config->getValue();
+    auto httpServerConfs = g_server_config->getValue();
     for(auto& conf : httpServerConfs) {
         std::vector<Address::ptr> addrVec;
         SEAICE_LOG_DEBUG(logger) << conf.toString();

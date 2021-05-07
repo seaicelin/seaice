@@ -4,8 +4,10 @@
 #include <semaphore.h>
 #include <pthread.h>
 #include <iostream>
+#include <list>
 #include <memory>
 #include <stdint.h>
+#include "fiber.h"
 #include "noncopyable.h"
 
 namespace seaice {
@@ -219,6 +221,22 @@ public:
     void lock() {}
     void unlock() {}
 
+};
+
+class Scheduler;
+//可以同时处理N个 fiber, 超过则放入等待队列
+class FiberSemaphore : public seaice::Noncopyable {
+public:
+    typedef SpinLock MutexType;
+    FiberSemaphore(size_t num);
+
+    bool tryWait();
+    void wait();
+    void notify();
+private:
+    size_t m_num;
+    std::list<std::pair<Scheduler*, Fiber::ptr> > m_list;
+    MutexType m_mutex;
 };
 
 }

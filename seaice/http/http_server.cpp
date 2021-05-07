@@ -11,6 +11,7 @@ HttpServer::HttpServer(bool keepalive, seaice::IOManager* worker
     : TcpServer(worker, accept_worker) 
     , m_Keepalive(keepalive) {
     m_dispatch.reset(new ServletDispatch);
+    m_type = "http";
 }
 
 void HttpServer::handleClient(Socket::ptr sock) {

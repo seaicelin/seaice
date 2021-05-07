@@ -3,7 +3,7 @@
 
 #include "http_session.h"
 #include "../stream.h"
-
+#include "http.h"
 /*
 1. 定义数据帧的消息头
 2. 定义帧数据消息体
@@ -19,6 +19,7 @@
 9 定义通用发送 ping/pong 接口
 */
 namespace seaice {
+namespace http {
 
 #pragma pack(1)
 struct WSFrameHead {
@@ -26,9 +27,9 @@ struct WSFrameHead {
     {
         CONTINUE = 0,
         TEXT_FRAME = 1,
-        BIN_FRAME = 2;
-        CLOSE = 8;
-        PING = 0X9;
+        BIN_FRAME = 2,
+        CLOSE = 8,
+        PING = 0X9,
         PONG = 0XA
     };
     uint32_t opcode: 4;
@@ -36,7 +37,7 @@ struct WSFrameHead {
     bool rsv1: 1;
     bool rsv2: 1;
     bool rsv3: 1;
-    uint32_t paload_len: 7;
+    uint32_t payload_len: 7;
     bool mask: 1;
 
     std::string toString() const;
@@ -47,14 +48,15 @@ class WSFrameMessage {
 public:
     typedef std::shared_ptr<WSFrameMessage> ptr;
 
-    WSSession(int opcode, const std::string& data = "") 
+    WSFrameMessage(int opcode, const std::string& data = "")
         : m_opcode(opcode)
         , m_data(data) {
     }
-    ~WSSession() {}
+    ~WSFrameMessage() {}
 
     int getOpcode() const {return m_opcode;}
     const std::string& getData() const {return m_data;}
+    std::string& getData() {return m_data;}
     uint64_t getDataLen() const {return m_data.size();}
     void setOpcode(int code) {m_opcode = code;}
     void setData(const std::string& data) {m_data = data;}
@@ -63,26 +65,26 @@ private:
     std::string m_data;
 };
 
-class WSSession : public HttpSession {
+class WSSession : public http::HttpSession {
 public:
     typedef std::shared_ptr<WSSession> ptr;
 
-    WSSession();
+    WSSession(Socket::ptr sock);
     ~WSSession();
 
     int sendMessage(WSFrameMessage::ptr message, bool fin = true);
     WSFrameMessage::ptr recvMessage();
     int sendPing();
     int sendPong();
-    HttpRequest::ptr handleShake();
+    seaice::http::HttpRequest::ptr handleShake();
 private:
-}
+};
 
-WSFrameMessage::ptr WSRecvMessage(Stream* stream);
-int WSSendMessage(Stream* stream, WSFrameMessage::ptr message, bool isClient; bool fin = true);
+WSFrameMessage::ptr WSRecvMessage(Stream* stream, bool client = false);
+int WSSendMessage(Stream* stream, WSFrameMessage::ptr message, bool isClient, bool fin = true);
 int WSSendPing(Stream* stream);
 int WSSendPong(Stream* stream);
 
 }
-
+}
 #endif

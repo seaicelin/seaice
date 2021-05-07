@@ -170,4 +170,20 @@ void Scheduler::tick() {
     SEAICE_LOG_DEBUG(logger) << " tick ";
 }
 
+std::ostream& Scheduler::dump(std::ostream& os) const {
+    os  << "[Schedule name = " << m_name
+        << " thread count = " << m_thread_count
+        << " active_count = " << m_active_thread
+        << " idle_count = " << m_idle_thread
+        << " m_stop = " << m_stop
+        << "]" << std::endl << "    ";
+    for(size_t i = 0; i < m_threadIds.size(); ++i) {
+        if(i) {
+            os << ", ";
+        }
+        os << m_threadIds[i];
+    }
+    return os;
+}
+
 }

@@ -12,7 +12,7 @@ FunctionServlet::FunctionServlet(Callback cb)
 int32_t FunctionServlet::handle(seaice::http::HttpRequest::ptr request
                     , seaice::http::HttpResponse::ptr response
                     , seaice::http::HttpSession::ptr session) {
-    m_cb(request, response, session);
+    return m_cb(request, response, session);
 }
 
 ServletDispatch::ServletDispatch() 
@@ -120,6 +120,7 @@ int32_t NotFoundServlet::handle(seaice::http::HttpRequest::ptr request
     response->getHeader("Server", "seaice/1.0.0");
     response->setHeader("Content-Type", "text/html");
     response->setBody(m_content);
+    return 0;
 }
 
 

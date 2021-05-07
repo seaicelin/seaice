@@ -1,0 +1,383 @@
+https://www.cnblogs.com/lyggqm/p/6208218.html
+
+多线程间计数操作、共享状态或者统计相关时间次数，这些都需要在多线程之间共享变量和修改变量，如此就需要在多线程间对该变量进行互斥操作和访问。
+
+        通常遇到多线程互斥的问题，首先想到的就是加锁lock，通过加互斥锁来进行线程间互斥，但是最近有看一些开源的项目，看到有一些同步读和操作的原子操作函数——__sync_fetch_and_add系列的命令，然后自己去网上查找一番，找到一篇博文有介绍这系列函数，学习一番后记录下来。
+
+ 
+
+首先，C/C++程序中count++这种操作不是原子的，一个自加操作，本质上分为3步：
+
+从缓存取到寄存器
+在寄存器内加1
+再存入缓存
+但是由于时序的因素，多线程操作同一个全局变量，就会出现很多问题。这就是多线程并发编程的难点，尤其随着计算机硬件技术的快速发展，多CPU多核技术更彰显出这种困难。
+
+通常，最简单的方法就是加锁保护，互斥锁(mutex)，这也是我使用最多的解决方案。大致代码如下：
+pthread_mutex_t lock;
+pthread_mutex_init(&lock,...);
+
+pthread_mutex_lock(&lock);
+count++;
+pthread_mutex_unlock(&lock);
+
+后来，在一些C/C++开源项目中，看到通过__sync_fetch_and_add一系列命令进行原子性操作，随后就在网上查阅相关资料，发现有很多博客都有介绍这系列函数。
+
+__sync_fetch_and_add系列一共有12个函数，分别：加/减/与/或/异或等原子性操作函数，__sync_fetch_and_add，顾名思义，先fetch，返回自加前的值。举例说明，count = 4，调用__sync_fetch_and_add(&count, 1)之后，返回值是4，但是count变成5。同样，也有__sync_add_and_fetch，先自加，然后返回自加后的值。这样对应的关系，与i++和++i的关系是一样的。
+
+gcc从4.1.2开始提供了__sync_*系列的build-in函数，用于提供加减和逻辑运算的原子操作，其声明如下：
+
+type __sync_fetch_and_add (type *ptr, type value, ...)
+type __sync_fetch_and_sub (type *ptr, type value, ...)
+type __sync_fetch_and_or (type *ptr, type value, ...)
+type __sync_fetch_and_and (type *ptr, type value, ...)
+type __sync_fetch_and_xor (type *ptr, type value, ...)
+type __sync_fetch_and_nand (type *ptr, type value, ...)
+
+type __sync_add_and_fetch (type *ptr, type value, ...)
+type __sync_sub_and_fetch (type *ptr, type value, ...)
+type __sync_or_and_fetch (type *ptr, type value, ...)
+type __sync_and_and_fetch (type *ptr, type value, ...)
+type __sync_xor_and_fetch (type *ptr, type value, ...)
+type __sync_nand_and_fetch (type *ptr, type value, ...)
+
+上述12个函数即为所有，通过函数名字就可以知道函数的作用。需要注意的是，这个type不能乱用(type只能是int, long, long long以及对应的unsigned类型)，同时在用gcc编译的时候要加上选项 -march=i686。
+后面的可扩展参数(...)用来指出哪些变量需要memory barrier，因为目前gcc实现的是full barrier(类似Linux kernel中的mb()，表示这个操作之前的所有内存操作不会被重排到这个操作之后)，所以可以忽略掉这个参数。
+
+下面简单介绍一下__sync_fetch_and_add反汇编出来的指令(实际上，这部分我还不是很懂，都是从其他博客上摘录的)
+804889d:f0 83 05 50 a0 04 08 lock addl $0x1,0x804a050
+可以看到，addl前面有一个lock，这行汇编指令前面是f0开头，f0叫做指令前缀，Richard Blum。lock前缀的意思是对内存区域的排他性访问。
+
+其实，lock是锁FSB，前端串行总线，Front Serial Bus，这个FSB是处理器和RAM之间的总线，锁住FSB，就能阻止其他处理器或者Core从RAM获取数据。当然这种操作开销相当大，只能操作小的内存可以这样做，想想我们有memcpy，如果操作一大片内存，锁内存，那么代价太大了。所以前面介绍__sync_fetch_and_add等函数，type只能是int, long, long long以及对应的unsigned类型。
+
+此外，还有两个类似的原子操作，
+bool __sync_bool_compare_and_swap(type *ptr, type oldval, type newval, ...)
+type __sync_val_compare_and_swap(type *ptr, type oldval, type newval, ...)
+
+这两个函数提供原子的比较和交换，如果*ptr == oldval，就将newval写入*ptr，
+第一个函数在相等并写入的情况下返回true；
+第二个函数在返回操作之前的值。
+ 
+type __sync_lock_test_and_set(type *ptr, type value, ...)
+将*ptr设为value并返回*ptr操作之前的值；
+void __sync_lock_release(type *ptr, ...)
+将*ptr置为0
+ 
+有了这些宝贝函数，对于多线程对全局变量进行操作(自加、自减等)问题，我们就不用考虑线程锁，可以考虑使用上述函数代替，和使用pthread_mutex保护的作用是一样的，线程安全且性能上完爆线程锁。
+ 
+下面是对线程锁和原子操作使用对比，并且进行性能测试与对比。代码来自于文献【1】，弄懂后并稍微改动一点点。代码中分别给出加锁、加线程锁、原子计数操作三种情况的比较。
+[cpp] view plain copy
+ 
+#include <stdio.h>  
+#include <stdlib.h>  
+#include <unistd.h>  
+#include <errno.h>  
+#include <pthread.h>  
+#include <sched.h>  
+#include <linux/unistd.h>  
+#include <sys/syscall.h>  
+#include <linux/types.h>  
+#include <time.h>  
+#include <sys/time.h>  
+  
+#define INC_TO 1000000 // one million  
+  
+__u64 rdtsc ()  
+{  
+    __u32 lo, hi;  
+    __asm__ __volatile__  
+    (  
+       "rdtsc":"=a"(lo),"=d"(hi)  
+    );  
+  
+    return (__u64)hi << 32 | lo;  
+}  
+  
+int global_int = 0;  
+  
+pthread_mutex_t count_lock = PTHREAD_MUTEX_INITIALIZER;//初始化互斥锁  
+  
+pid_t gettid ()  
+{  
+    return syscall(__NR_gettid);  
+}  
+  
+void * thread_routine1 (void *arg)  
+{  
+    int i;  
+    int proc_num = (int)(long)arg;  
+      
+    __u64 begin, end;  
+    struct timeval tv_begin, tv_end;  
+    __u64 time_interval;  
+      
+    cpu_set_t set;  
+      
+    CPU_ZERO(&set);  
+    CPU_SET(proc_num, &set);  
+  
+    if (sched_setaffinity(gettid(), sizeof(cpu_set_t), &set))  
+    {  
+        fprintf(stderr, "failed to set affinity\n");  
+        return NULL;  
+    }  
+    begin = rdtsc();  
+    gettimeofday(&tv_begin, NULL);  
+    for (i = 0; i < INC_TO; i++)  
+    {  
+        __sync_fetch_and_add(&global_int, 1);  
+    }  
+    gettimeofday(&tv_end, NULL);  
+    end = rdtsc();  
+    time_interval = (tv_end.tv_sec - tv_begin.tv_sec) * 1000000 + (tv_end.tv_usec - tv_begin.tv_usec);  
+    fprintf(stderr, "proc_num : %d, __sync_fetch_and_add cost %llu CPU cycle, cost %llu us\n", proc_num, end - begin, time_interval);  
+      
+    return NULL;  
+}  
+  
+void *thread_routine2(void *arg)  
+{  
+    int i;  
+    int proc_num = (int)(long)arg;  
+  
+    __u64 begin, end;  
+    struct timeval tv_begin, tv_end;  
+    __u64 time_interval;  
+      
+    cpu_set_t set;  
+      
+    CPU_ZERO(&set);  
+    CPU_SET(proc_num, &set);  
+  
+    if (sched_setaffinity(gettid(), sizeof(cpu_set_t), &set))  
+    {  
+        fprintf(stderr, "failed to set affinity\n");  
+        return NULL;  
+    }  
+    begin = rdtsc();  
+    gettimeofday(&tv_begin, NULL);  
+    for (i = 0; i < INC_TO; i++)  
+    {  
+        pthread_mutex_lock(&count_lock);  
+        global_int++;  
+        pthread_mutex_unlock(&count_lock);  
+    }  
+    gettimeofday(&tv_end, NULL);  
+    end = rdtsc();  
+    time_interval = (tv_end.tv_sec - tv_begin.tv_sec) * 1000000 + (tv_end.tv_usec - tv_begin.tv_usec);  
+    fprintf(stderr, "proc_num : %d, pthread_mutex_lock cost %llu CPU cycle, cost %llu us\n", proc_num, end - begin, time_interval);  
+      
+    return NULL;    
+}  
+  
+void *thread_routine3(void *arg)  
+{  
+    int i;  
+    int proc_num = (int)(long)arg;  
+  
+    __u64 begin, end;  
+    struct timeval tv_begin, tv_end;  
+    __u64 time_interval;  
+      
+    cpu_set_t set;  
+      
+    CPU_ZERO(&set);  
+    CPU_SET(proc_num, &set);  
+  
+    if (sched_setaffinity(gettid(), sizeof(cpu_set_t), &set))  
+    {  
+        fprintf(stderr, "failed to set affinity\n");  
+        return NULL;  
+    }  
+    begin = rdtsc();  
+    gettimeofday(&tv_begin, NULL);  
+    for (i = 0; i < INC_TO; i++)  
+    {  
+        global_int++;  
+    }  
+    gettimeofday(&tv_end, NULL);  
+    end = rdtsc();  
+    time_interval = (tv_end.tv_sec - tv_begin.tv_sec) * 1000000 + (tv_end.tv_usec - tv_begin.tv_usec);  
+    fprintf(stderr, "proc_num : %d, no lock cost %llu CPU cycle, cost %llu us\n", proc_num, end - begin, time_interval);  
+      
+    return NULL;  
+}  
+  
+int main()  
+{  
+    int procs = 0;  
+    int all_cores = 0;  
+    int i;  
+    pthread_t *thrs;  
+  
+    procs = (int)sysconf(_SC_NPROCESSORS_ONLN);  
+    if (procs < 0)  
+    {  
+        fprintf(stderr, "failed to fetch available CPUs(Cores)\n");  
+        return -1;  
+    }  
+    all_cores = (int)sysconf(_SC_NPROCESSORS_CONF);  
+    if (all_cores < 0)  
+    {  
+        fprintf(stderr, "failed to fetch system configure CPUs(Cores)\n");  
+        return -1;  
+    }  
+      
+    printf("system configure CPUs(Cores): %d\n", all_cores);  
+    printf("system available CPUs(Cores): %d\n", procs);  
+  
+    thrs = (pthread_t *)malloc(sizeof(pthread_t) * procs);  
+    if (thrs == NULL)  
+    {  
+        fprintf(stderr, "failed to malloc pthread array\n");  
+        return -1;  
+    }  
+      
+    printf("starting %d threads...\n", procs);  
+      
+    for (i = 0; i < procs; i++)  
+    {  
+        if (pthread_create(&thrs[i], NULL, thread_routine1, (void *)(long) i))  
+        {  
+            fprintf(stderr, "failed to pthread create\n");  
+            procs = i;  
+            break;  
+        }  
+    }  
+  
+    for (i = 0; i < procs; i++)  
+    {  
+        pthread_join(thrs[i], NULL);  
+    }  
+    
+    printf("after doing all the math, global_int value is: %d\n", global_int);  
+    printf("expected value is: %d\n", INC_TO * procs);  
+  
+    free (thrs);  
+      
+    return 0;  
+}  
+ 
+         运行结果如下：
+         每次修改不同thread_routine?()函数，重新编译即可测试不同情况。
+         g++ main.cpp -D _GNU_SOURCE -l pthread
+         ./a.out
+ 
+         不加锁下运行结果：
+[plain] view plain copy
+ 
+system configure CPUs(Cores): 8  
+system available CPUs(Cores): 8  
+starting 8 threads...  
+proc_num : 5, no lock cost 158839371 CPU cycle, cost 66253 us  
+proc_num : 6, no lock cost 163866879 CPU cycle, cost 68351 us  
+proc_num : 2, no lock cost 173866203 CPU cycle, cost 72521 us  
+proc_num : 7, no lock cost 181006344 CPU cycle, cost 75500 us  
+proc_num : 1, no lock cost 186387174 CPU cycle, cost 77728 us  
+proc_num : 0, no lock cost 186698304 CPU cycle, cost 77874 us  
+proc_num : 3, no lock cost 196089462 CPU cycle, cost 81790 us  
+proc_num : 4, no lock cost 200366793 CPU cycle, cost 83576 us  
+after doing all the math, global_int value is: 1743884  
+expected value is: 8000000  
+
+          线程锁下运行结果：
+[plain] view plain copy
+ 
+system configure CPUs(Cores): 8  
+system available CPUs(Cores): 8  
+starting 8 threads...  
+proc_num : 1, pthread_mutex_lock cost 9752929875 CPU cycle, cost 4068121 us  
+proc_num : 5, pthread_mutex_lock cost 10038570354 CPU cycle, cost 4187272 us  
+proc_num : 7, pthread_mutex_lock cost 10041209091 CPU cycle, cost 4188374 us  
+proc_num : 0, pthread_mutex_lock cost 10044102546 CPU cycle, cost 4189546 us  
+proc_num : 6, pthread_mutex_lock cost 10113533973 CPU cycle, cost 4218541 us  
+proc_num : 4, pthread_mutex_lock cost 10117540197 CPU cycle, cost 4220212 us  
+proc_num : 3, pthread_mutex_lock cost 10160384391 CPU cycle, cost 4238083 us  
+proc_num : 2, pthread_mutex_lock cost 10164464784 CPU cycle, cost 4239778 us  
+after doing all the math, global_int value is: 8000000  
+expected value is: 8000000  
+
+         原子操作__sync_fetch_and_add下运行结果：
+[plain] view plain copy
+ 
+system configure CPUs(Cores): 8  
+system available CPUs(Cores): 8  
+starting 8 threads...  
+proc_num : 3, __sync_fetch_and_add cost 2364148575 CPU cycle, cost 986129 us  
+proc_num : 1, __sync_fetch_and_add cost 2374990974 CPU cycle, cost 990652 us  
+proc_num : 2, __sync_fetch_and_add cost 2457930267 CPU cycle, cost 1025247 us  
+proc_num : 5, __sync_fetch_and_add cost 2463027030 CPU cycle, cost 1027373 us  
+proc_num : 7, __sync_fetch_and_add cost 2532240981 CPU cycle, cost 1056244 us  
+proc_num : 4, __sync_fetch_and_add cost 2555055054 CPU cycle, cost 1065760 us  
+proc_num : 0, __sync_fetch_and_add cost 2561248971 CPU cycle, cost 1068331 us  
+proc_num : 6, __sync_fetch_and_add cost 2558781396 CPU cycle, cost 1067314 us  
+after doing all the math, global_int value is: 8000000  
+expected value is: 8000000  
+通过测试结果可以看出：
+ 
+        1. 不加锁的情况下，不能获得正确结果。
+                测试结果表明，正确结果为8000000，而实际为1743884。表明多线程下修改全局计数，不加锁的话是错误的；
+
+        2. 加锁情况下，无论是线程锁还是原子性操作，均可获得正确结果。
+
+        3. 性能上__sync_fetch_and_add()完爆线程锁。
+
+                从性能测试结果上看，__sync_fetch_and_add()速度大致是线程锁的4-5倍。
+
+        
+
+ 
+
+测试结果对比
+类型  平均CPU周期(circle) 平均耗时(us)
+不加锁 180890066   75449.13
+线程锁 10054091901 4193740.875
+原子操作    2483427906  1035881.25
+ 
+
+ 
+
+注：如上的性能测试结果，表明__sync_fetch_and_add()速度大致是线程锁的4-5倍，而并非文献【1】中6-7倍。由此，怀疑可能是由不同机器、不同CPU导致的，上述测试是在一台8core的虚拟机上实验的。为此，我又在不同的机器上重复相同的测试。
+
+         24cores实体机测试结果，表明__sync_fetch_and_add()速度大致只有线程锁的2-3倍。
+
+ 
+
+24 cores实体机测试结果
+类型  平均CPU周期(circle) 平均耗时(us)
+不加锁 535457026   233310.5
+线程锁 9331915480  4066156.667
+原子操作    3769900795  1643463.625
+ 
+
+       总体看来，原子操作__sync_fetch_and_add()大大的优于线程锁。
+
+ 
+
+另外：
+
+       上面介绍的原子操作参数里都有可扩展参数(...)用来指出哪些变量需要memory barrier，因为目前gcc实现的是full barrier(类似Linux kernel中的mb()，表示这个操作之前的所有内存操作不会被重排到这个操作之后)，所以可以忽略掉这个参数。下面是有关memory barrier的东西。
+
+        关于memory barrier, cpu会对我们的指令进行排序，一般说来会提高程序的效率，但有时候可能造成我们不希望看到的结果。举例说明，比如我们有一硬件设备，当你发出一个操作指令的时候，一个寄存器存的是你的操作指令(READ)，两个寄存器存的是参数（比如地址和size），最后一个寄存器是控制寄存器，在所有的参数都设置好后向其发出指令，设备开始读取参数，执行命令，程序可能如下：
+             write1(dev.register_size, size);
+             write1(dev.register_addr, addr);
+             write1(dev.register_cmd, READ);
+             write1(dev.register_control, Go);
+
+       如果CPU对我们的指令进行优化排序，导致最后一条write1被换到前几条语句之前，那么肯定不是我们所期望的，这时候我们可以在最后一条语句之前加入一个memory barrier，强制CPU执行完前面的写入后再执行最后一条：
+             write1(dev.register_size, size);
+             write1(dev.register_addr, addr);
+             write1(dev.register_cmd, READ);
+             __sync_synchronize();            发出一个full barrier
+             write1(dev.register_control, GO);
+ 
+memory barrier有几种类型：
+      acquire barrier：不允许将barrier之后的内存读取指令移到barrier之前；（linux kernel中的wmb）
+      release barrier：不允许将barrier之前的内存读取指令移到barrier之后；（linux kernel中的rmb）
+      full barrier：以上两种barrier的合集；（linux kernel中的mb）
+ 
+参考文献：
+1. http://blog.chinaunix.net/uid-24774106-id-3016929.html
+2. http://blog.163.com/xychenbaihu@yeah/blog/static/13222965520133543527567/
+3. http://blog.csdn.net/qiqll/article/details/7971574
+好文要顶 关注我 收藏该文  

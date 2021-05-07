@@ -1,10 +1,12 @@
-#include "log.h"
+#include "../log.h"
+#include "../endian.h"
 #include "ws_session.h"
 #include "../config2.h"
 #include <sstream>
 #include <string.h>
 
 namespace seaice {
+namespace http {
 
 static Logger::ptr logger = SEAICE_LOGGER("system");
 
@@ -66,10 +68,11 @@ HttpRequest::ptr WSSession::handleShake() {
         SEAICE_LOG_ERROR(logger) << "handleShake Sec-WebSocket-Version != 13";
         return nullptr;
     }
+    req->setWebSock(true);
     auto webScoketKey = req->getHeader("Sec-WebSocket-Key");
     std::string magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
-    HttpResponse::ptr rsp(new HttpResponse(req->getVersion(), req->isClose() || !m_Keepalive));
+    HttpResponse::ptr rsp(new HttpResponse(req->getVersion(), req->isClose()));
     rsp->setStatus(HttpStatus::SWITCHING_PROTOCOLS);
     rsp->setReason("Web socket protocol handleShake");
     rsp->setHeader("Connection", "Upgrade");
@@ -82,7 +85,7 @@ HttpRequest::ptr WSSession::handleShake() {
     return req;
 }
 
-WSFrameMessage::ptr WSRecvMessage(Stream* stream) {
+WSFrameMessage::ptr WSRecvMessage(Stream* stream, bool client) {
     int cur_len = 0;
     std::string data;
     int opcode = 0;
@@ -105,7 +108,8 @@ WSFrameMessage::ptr WSRecvMessage(Stream* stream) {
         } else if(head.opcode == WSFrameHead::CONTINUE
                     || head.opcode == WSFrameHead::TEXT_FRAME
                     || head.opcode == WSFrameHead::BIN_FRAME) {
-            if(head.mask != 1) {
+            //ws frame msg from client the mask should set 1
+            if(head.mask != 1 && !client) {
                 SEAICE_LOG_ERROR(logger) << "recv WSFrameHead mask != 1";
                 break;
             }
@@ -166,15 +170,15 @@ WSFrameMessage::ptr WSRecvMessage(Stream* stream) {
 
             if(head.fin) {
                 SEAICE_LOG_INFO(logger) << "data = " << data;
-                return WSFrameMessage(opcode, std::move(data));
+                return std::make_shared<WSFrameMessage>(opcode, std::move(data));
             }
         }
     } while(true);
-    close();
+    stream->close();
     return nullptr;
 }
 
-int WSSendMessage(Stream* stream, WSFrameMessage::ptr message, bool isClient; bool fin) {
+int WSSendMessage(Stream* stream, WSFrameMessage::ptr message, bool isClient, bool fin) {
     do {
         WSFrameHead head;
         memset(&head, 0, sizeof(head));
@@ -198,7 +202,6 @@ int WSSendMessage(Stream* stream, WSFrameMessage::ptr message, bool isClient; bo
             SEAICE_LOG_ERROR(logger) << "send message write head error";
             break;
         }
-        n += rt;
         if(head.payload_len == 126) {
             uint16_t len = (uint16_t)dataLen;
             len = seaice::byteswapOnLittleEndian(len);
@@ -263,4 +266,5 @@ int WSSendPong(Stream* stream) {
 }
 
 
+}
 }

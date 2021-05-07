@@ -59,12 +59,12 @@ public:
 private:
     const std::string toStateString(State state) const;
 private:
-    uint64_t m_id;
-    Callback m_cb = nullptr;
-    uint32_t m_size = 0;
-    char* m_stack = nullptr;
-    ucontext_t m_ctx;
-    State m_state;
+    uint64_t        m_id;
+    Callback        m_cb;
+    uint32_t        m_size;
+    char*           m_stack;
+    ucontext_t      m_ctx;
+    State           m_state;
 };
 
 }

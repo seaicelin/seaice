@@ -1,0 +1,10 @@
+
+wget https://nchc.dl.sourceforge.net/project/libpng/zlib/1.2.11/zlib-1.2.11.tar.gz
+tar -xvf zlib-1.2.11.tar.gz
+cd zlib-1.2.11
+./configure --prefix=/usr/local/zlib-1.2.11
+make
+sudo make install
+然后将lib目录加入LD_LIBRARY_PATH中就可以使用了：
+
+export LD_LIBRARY_PATH=/usr/local/zlib-1.2.11/lib:$LD_LIBRARY_PATH

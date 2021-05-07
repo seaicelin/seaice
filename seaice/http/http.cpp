@@ -150,9 +150,11 @@ std::ostream& HttpRequest::dump(std::ostream& os) const {
         << "."
         << ((uint32_t)(m_versoin & 0x0F))
         << "\r\n";
-    os << "connection: " << (m_close ? "close" : "keep-alive") << "\r\n";
+    if(!m_websock) {
+        os << "connection: " << (m_close ? "close" : "keep-alive") << "\r\n";
+    }
     for(auto& it : m_headers) {
-        if(strcasecmp(it.first.c_str(), "connection") == 0) {
+        if(!m_websock && strcasecmp(it.first.c_str(), "Connection") == 0) {
             continue;
         }
         os << it.first << ":" << it.second << "\r\n";

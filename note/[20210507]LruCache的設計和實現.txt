@@ -1,0 +1,214 @@
+https://blog.csdn.net/zhangxiao93/article/details/52974257
+
+1.LRUCache简介
+起源于去年中兴笔试的求基于LRUCache Miss的次数，今天做LeetCode又有设计LRUCache，就花一天时间研究一下。
+
+LRU是Least Recently Used的缩写，意思是最近最少使用，它是一种Cache替换算法。什么是Cache？狭义的Cache指的是位于CPU和主存间的快速RAM，通常它不像系统主存那样使用DRAM技术，而使用昂贵但较快速的SRAM技术。广义上的Cache指的是位于速度相差较大的两种硬件之间，用于协调两者数据传输速度差异的结构。除了CPU与主存之间有Cache，内存与硬盘之间也有Cache，乃至在硬盘与网络之间也有某种意义上的Cache──称为Internet临时文件夹或网络内容缓存等。
+
+Cache的容量有限，因此当Cache的容量用完后，而又有新的内容需要添加进来时，就需要挑选并舍弃原有的部分内容，从而腾出空间来放新内容。LRU Cache的替换原则就是将最近最少使用的内容替换掉。其实，LRU译成最久未使用会更形象，因为该算法每次替换掉的就是一段时间内最久没有使用过的内容。
+
+2.LRUCache的设计
+2.1概述
+LRU的典型实现使用双向链表+哈希，双向链表存储数据节点，哈希的目的则是将链式数据结构线性查找复杂度O(n)O(n)降低至O(1)O(1)。
+
+另外，关于哈希，STL中有实现hash_map但未列入C++标准，相比之下推荐使用unordered_map。
+
+分析最近最少使用的替换原则，有如下结论：
+
+双向链表作为数据结构，为了方便管理，设置头节点和尾节点，如果某一个节点被访问，那么不管它之前在链表中的什么位置，那么该节点的访问时间就成了最新访问时间，则需要把它插入到头节点之后。同理，如果cache满了，需要替换掉cache中的内容，越靠近尾节点说明其访问时间越早，也就是最久未被访问，我们就需要去掉尾节点的前一个节点。
+
+2.2接口
+LRUCache主要有两个接口：
+
+void Put(K key , T data);
+T Get(K key);
+1
+2
+两个接口却需要讨论4种情况：
+1.Get函数，通过key访问成功（称为cache hit），直接返回data。
+2.Get函数，通过key访问失败（称为cache miss），LeetCode要求直接返回-1，这里如果要计算cache miss的次数，需要调用put函数。
+3.Put函数，如果cache满了，删掉尾部节点，并将新节点插入到头部。
+4.Put函数，如果cache未满，直接插入头部。
+
+2.3实现
+稍微复杂一点的做法就是用模板封装一下：
+
+lru.h
+//lru.h
+#ifndef __LRU_H__
+#define __LRU_H__
+#include <iostream>
+#include <unordered_map>//C++11 
+//#include <hash_map>//The STL has hash_map,not standard
+#include <vector>
+using namespace std;
+
+template <typename K,typename T>
+struct Node{
+    K key;
+    T data;
+    Node*prev,*next;
+};
+
+template <typename K,typename T>
+class LRUCache{
+public:
+    LRUCache(size_t size);
+    ~LRUCache();
+    void Put(K key,T data);
+    T Get(K key);
+    int getCount(){return count;}//cache miss count
+private:
+    void attach(Node<K,T> *node);//插入到链表头
+    void detach(Node<K,T> *node);//链表中删除节点
+
+    int count;//cache miss count
+    unordered_map<K,Node<K,T>* >hashmap_;//hash表
+    vector< Node<K,T>* >free_entries_;//用来表示cache是否以满，类似内存池pool
+    Node<K,T>*head_,*tail_;//头节点尾节点
+    Node<K,T>*entries_;//申请cache的首地址
+};
+
+template <typename K,typename T>
+LRUCache<K,T>::LRUCache(size_t size)//construct
+{
+    count=0;
+    entries_ = new Node<K,T>[size];
+    for(int i=0;i<size;++i)
+     free_entries_.push_back(entries_+i);
+     head_ = new Node<K,T>;
+     tail_ = new Node<K,T>;
+     head_->prev = NULL;
+     head_->next = tail_;
+     tail_->prev = head_;
+     tail_->next = NULL;
+}
+template <typename K,typename T>
+LRUCache<K,T>::~LRUCache()//destruct
+{
+    delete head_;
+    delete tail_;
+    delete[] entries_;
+}
+
+template <typename K,typename T>
+void LRUCache<K,T>::Put(K key,T data)
+{
+    Node<K,T>*node = hashmap_[key];
+    if(NULL!=node)//cache hit
+    {
+        detach(node);
+        node->key=key;
+        node->data=data;
+        attach(node);
+    }
+    else//update
+    {
+        if(free_entries_.empty())//cache full
+        {
+            node=tail_->prev;
+            detach(node);
+            hashmap_.erase(node->key);最后一个节点删除
+        }
+        else//未满
+        {
+            node = free_entries_.back();
+            free_entries_.pop_back();
+        }
+        //插入新节点
+        node->key=key;
+        node->data=data;
+        hashmap_[key]=node;
+        attach(node);
+    }
+}
+template <typename K,typename T>
+T LRUCache<K,T>::Get(K key)
+{
+    Node<K,T> *node = hashmap_[key];
+    if(NULL!=node)//cache hit
+    {
+        detach(node);
+        attach(node);
+        return node->data;
+    }
+    else//cache miss
+    {
+        ++count;
+        Put(key,T());
+    //  return T();
+    }
+}
+
+template <typename K,typename T>
+void LRUCache<K,T>::attach(Node<K,T> *node)
+{
+    node->next=head_->next;
+    head_->next=node;
+    node->next->prev=node;
+    node->prev=head_;
+}
+
+template <typename K,typename T>
+void LRUCache<K,T>::detach(Node<K,T> *node)
+{
+    node->prev->next=node->next;
+    node->next->prev=node->prev;
+}
+
+#endif
+
+main.cpp
+这里用cache miss count来验证正确性：
+
+//main.cpp
+
+#include "lru.h"
+#include <string>
+int main()
+{
+#if 0
+    int size=3;
+    int num=16;
+    vector<int>pages={7,0,1,2,0,3,0,4,2,3,0,3,2,1,2,0};
+    LRUCache<int,int>lru(size);
+    for(int i = 0;i < num; ++i)
+    {
+        lru.Get(pages[i]);
+    }
+    cout<<lru.getCount()<<endl;//11
+#endif
+    int size =2;
+    int num=9;
+    vector<int>pages={2,3,1,3,2,1,4,3,2 };
+    LRUCache<int,int>lru(size);
+    for(int i = 0;i < num; ++i)
+    {
+        lru.Get(pages[i]);
+    }
+    cout<<lru.getCount()<<endl;//8
+    return 0;
+}
+
+Makefile
+PROGS=main
+CLEANFILES = core core.* *.core *.o temp.* *.out typescript* \
+        *.lc *.lh *.bsdi *.sparc *.uw
+
+all :${PROGS}
+
+
+CXXFLAGS+=-g  -std=c++11
+
+main: main.o
+    ${CXX} ${CXXFLAGS} -o $@ $^
+    @rm *.o
+clean:
+    rm -f ${PROGS} ${CLEANFILES}
+
+3.参考
+1.http://www.hawstein.com/posts/lru-cache-impl.html
+2.http://stackoverflow.com/questions/5908581/is-hash-map-part-of-the-stl
+————————————————
+版权声明：本文为CSDN博主「NearXDU」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+原文链接：https://blog.csdn.net/zhangxiao93/article/details/52974257

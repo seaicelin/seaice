@@ -1,24 +1,32 @@
 #include "ws_servlet.h"
 
-namespace seaice{
+namespace seaice {
+namespace http {
 
-FunctionWSServlet::FunctionWSServlet(HandleCallback handle_cb
-                    , ConnectCallback& connect_cb = nullptr
-                    , CloseCallback close_cb = nullptr)
-    : FunctionWSServlet("FunctionWSServlet")
+WSServlet::WSServlet(const std::string& name) 
+    : Servlet(name){
+}
+
+WSServlet::~WSServlet() {
+}
+
+WSFunctionServlet::WSFunctionServlet(HandleCallback handle_cb
+                    , ConnectCallback connect_cb
+                    , CloseCallback close_cb)
+    : WSServlet("WSFunctionServlet")
     , m_handleCb(handle_cb)
     , m_connectCb(connect_cb)
     , m_closeCb(close_cb){
 }
 
-void FunctionWSServlet::onConnect(HttpRequest::ptr req
+void WSFunctionServlet::onConnect(HttpRequest::ptr req
                         , WSSession::ptr session) {
     if(m_connectCb) {
         m_connectCb(req, session);
     }
 }
 
-void FunctionWSServlet::handle(HttpRequest::ptr req 
+void WSFunctionServlet::handle(HttpRequest::ptr req 
                     , WSFrameMessage::ptr message
                     , WSSession::ptr session) {
     if(m_handleCb) {
@@ -26,7 +34,7 @@ void FunctionWSServlet::handle(HttpRequest::ptr req
     }
 }
 
-void FunctionWSServlet::onClose(HttpRequest::ptr req
+void WSFunctionServlet::onClose(HttpRequest::ptr req
                     , WSSession::ptr session) {
     if(m_closeCb) {
         m_closeCb(req, session);
@@ -38,27 +46,28 @@ WSServletDispatcher::WSServletDispatcher() {
 }
 
 void WSServletDispatcher::addServlet(const std::string& uri
-            , FunctionWSServlet::HandleCallback handlecb
-            , FunctionWSServlet::ConnectCallback connect_cb
-            , FunctionWSServlet::CloseCallback close_cb) {
+            , WSFunctionServlet::HandleCallback handle_cb
+            , WSFunctionServlet::ConnectCallback connect_cb
+            , WSFunctionServlet::CloseCallback close_cb) {
     ServletDispatch::addServlet(uri, 
-                        std::make_shared<FunctionWSServlet>(handle_cb,
+                        std::make_shared<WSFunctionServlet>(handle_cb
                             , connect_cb, close_cb));
 }
 
 void WSServletDispatcher::addGlobServlet(const std::string& uri
-            , FunctionWSServlet::HandleCallback handlecb
-            , FunctionWSServlet::ConnectCallback connect_cb
-            , FunctionWSServlet::CloseCallback close_cb) {
+            , WSFunctionServlet::HandleCallback handle_cb
+            , WSFunctionServlet::ConnectCallback connect_cb
+            , WSFunctionServlet::CloseCallback close_cb) {
     ServletDispatch::addGlobServlet(uri,
-                        std::make_shared<FunctionWSServlet>(handlecb
+                        std::make_shared<WSFunctionServlet>(handle_cb
                             , connect_cb, close_cb));
 }
 
-WSServlet::prt WSServletDispatcher::getServlet(const std::string& uri) {
+WSServlet::ptr WSServletDispatcher::getServlet(const std::string& uri) {
     auto slt = getMatchServlet(uri);
     return std::dynamic_pointer_cast<WSServlet>(slt);
 }
 
 
+}
 }

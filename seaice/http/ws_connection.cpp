@@ -1,48 +1,53 @@
 #include "ws_connection.h"
+#include "../log.h"
 
-namespace seaice{
+namespace seaice {
+namespace http {
 
-std::pair<HttpResult::ptr, WSConnection::ptr> Create(const std::string& url
+static Logger::ptr logger = SEAICE_LOGGER("system");
+
+std::pair<http::HttpResult::ptr, WSConnection::ptr> WSConnection::Create(const std::string& url
                                                     , uint64_t timeout_ms
                                                     , const std::map<std::string, std::string>& headers) {
     Uri::ptr uri = Uri::Create(url);
     if(!uri) {
-        return std::make_pair(std::make_shared<HttpResult>((int)HttpResult::Error::INVALID_URL
+        return std::make_pair(std::make_shared<http::HttpResult>((int)http::HttpResult::Error::INVALID_URL
                     , nullptr, "invalid host = " + url), nullptr);
     }
     return Create(uri, timeout_ms, headers);
 }
 
-std::pair<HttpResult::ptr, WSConnection::ptr> Create( Uri::ptr uri
+std::pair<http::HttpResult::ptr, WSConnection::ptr> WSConnection::Create( Uri::ptr uri
                                                 , uint64_t timeout_ms
                                                 , const std::map<std::string, std::string>& headers) {
     Address::ptr addr = uri->createAddress();
     SEAICE_LOG_DEBUG(logger) << addr->toString();
     if(!addr) {
-        auto result = std::make_shared<HttpResult>((int)HttpResult::Error::INVALID_HOST
+        auto result = std::make_shared<http::HttpResult>((int)http::HttpResult::Error::INVALID_HOST
                     , nullptr, "invalid host = " + uri->getHost());
         return std::make_pair(result, nullptr);
     }
     Socket::ptr sock = Socket::CreateTCP(addr);
     if(!sock) {
-        auto result std::make_shared<HttpResult>((int)HttpResult::Error::CREATE_SOCKET_ERROR
+        auto result = std::make_shared<http::HttpResult>((int)http::HttpResult::Error::CREATE_SOCKET_ERROR
                     , nullptr, "create socket failed: " + addr->toString()
                     + " errno = " + std::to_string(errno)
                     + " errstr = " + std::string(strerror(errno)));
         return std::make_pair(result, nullptr);
     }
     if(!sock->connect(addr)) {
-        auto result = std::make_shared<HttpResult>((int)HttpResult::Error::CONNECT_FAIL
+        auto result = std::make_shared<http::HttpResult>((int)http::HttpResult::Error::CONNECT_FAIL
                     , nullptr, "connect fail: " + addr->toString());
         return std::make_pair(result, nullptr);
     }
     sock->setRecvTimeout(timeout_ms);
     WSConnection::ptr conn = std::make_shared<WSConnection>(sock);
-    HttpRequest::ptr req(new HttpRequest());
+    http::HttpRequest::ptr req(new http::HttpRequest());
     req->setPath(uri->getPath());
     req->setQuery(uri->getQuery());
     req->setFragment(uri->getFragment());
-    req->setMethod(HttpMethod::GET);
+    req->setMethod(http::HttpMethod::GET);
+    req->setWebSock(true);
 
     bool has_conn = false;
     bool has_host = false;
@@ -69,31 +74,32 @@ std::pair<HttpResult::ptr, WSConnection::ptr> Create( Uri::ptr uri
     req->setHeader("Sec-WebSocket-Key", "w4v7O6xFTi36lq3RNcgctw==");
 
     int rt = conn->sendRequest(req);
+    SEAICE_LOG_DEBUG(logger) << *req;
     if(rt == 0) {
-        auto result = std::make_shared<HttpResult>((int)HttpResult::Error::SEND_CLOSE_BY_PEER
+        auto result = std::make_shared<http::HttpResult>((int)http::HttpResult::Error::SEND_CLOSE_BY_PEER
                     , nullptr, "send request closed by peer: " + addr->toString());
         return std::make_pair(result, nullptr);
     }
     if(rt < 0) {
-        auto result = std::make_shared<HttpResult>((int)HttpResult::Error::SEND_SOCKET_ERROR
+        auto result = std::make_shared<http::HttpResult>((int)http::HttpResult::Error::SEND_SOCKET_ERROR
                     , nullptr, "send request socket error errno = " + std::to_string(errno)
                     + " errstr = " + std::string(strerror(errno)));
         return std::make_pair(result, nullptr);
     }
     auto rsp = conn->recvResponse();
     if(!rsp) {
-        auto result = std::make_shared<HttpResult>((int)HttpResult::Error::TIMEOUT
+        auto result = std::make_shared<http::HttpResult>((int)http::HttpResult::Error::TIMEOUT
                     , nullptr, "recv response timeout: " + addr->toString()
                     + " timeout_ms:" + std::to_string(timeout_ms));
         return std::make_pair(result, nullptr);
     }
-    if(rsp->getStatus() != HttpStatus::SWITCHING_PROTOCOLS) {
-        auto result std::make_shared<HttpResult>((int)HttpResult::Error::INVALID_WEBSOCK_STATUS
-                    , nullptr, "recv invalid websocket response status: "
-                    + http::HttpStatusToString(rsp->getStatus()) + " addr = " + addr->toString());
+    if(rsp->getStatus() != http::HttpStatus::SWITCHING_PROTOCOLS) {
+        std::string errstr("recv invalid websocket response status"); 
+        auto result = std::make_shared<http::HttpResult>((int)http::HttpResult::Error::INVALID_WEBSOCK_STATUS
+                    , nullptr, errstr + http::HttpStatusToString(rsp->getStatus()) + " addr = " + addr->toString());
         return std::make_pair(result, nullptr);
     }
-    auto result = std::make_shared<HttpResult>((int)HttpResult::Error::OK, rsp, "ok");
+    auto result = std::make_shared<http::HttpResult>((int)http::HttpResult::Error::OK, rsp, "ok");
     return std::make_pair(result, conn);
 }
 
@@ -108,8 +114,14 @@ int WSConnection::sendMessage(WSFrameMessage::ptr message, bool fin) {
     return WSSendMessage(this, message, true, fin);
 }
 
+int WSConnection::sendMessage(std::string msg, int opcode, bool fin) {
+    WSFrameMessage::ptr message = std::make_shared<WSFrameMessage>(opcode, msg);
+    return sendMessage(message, fin);
+}
+
+
 WSFrameMessage::ptr WSConnection::recvMessage() {
-    return WSRecvMessage(this);
+    return WSRecvMessage(this, true);
 }
 
 int WSConnection::sendPint() {
@@ -121,4 +133,5 @@ int WSConnection::sendPong() {
 }
 
 
+}
 }

@@ -569,7 +569,7 @@ LoggerMgr::LoggerMgr() {
     m_logger = Logger::ptr(new Logger);
     m_logger->setAppender(LogAppender::ptr(new StdoutLogAppender));
     m_logger->setAppender(LogAppender::ptr(new FileLogAppender));
-    YAML::Node root = YAML::LoadFile("/media/sf_Iceserver/vsclient/seaice/build/bin/conf/test.yml");
+    YAML::Node root = YAML::LoadFile("/media/sf_Iceserver/vsclient/seaice/build/bin/conf/log.yml");
     seaice::Config2::LoadFromYaml(root);
     //std::cout<<"loggerMgr"<<std::endl;
 }
