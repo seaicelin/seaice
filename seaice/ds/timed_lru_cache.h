@@ -1,0 +1,302 @@
+#ifndef __SEAICE_TIMED_LRU_CACHE_H__
+#define __SEAICE_TIMED_LRU_CACHE_H__
+
+#include <stdint.h>
+#include <memory>
+#include <functional>
+#include <algorithm>
+#include <sstream>
+#include <list>
+#include <set>
+#include <unordered_map>
+#include "cache_status.h"
+#include "../utils.h"
+#include "../mutex.h"
+
+namespace seaice {
+namespace ds {
+
+template<typename K, typename V, typename MutexType = seaice::Mutex>
+class TimedLruCache {
+private:
+    struct Item {
+        Item(const K& k, const V& v, const uint64_t ms) 
+            : key(k)
+            , val(v)
+            , ts(ms) {
+        }
+        K key;
+        mutable V val;
+        uint64_t ts;
+        bool operator< (const Item& rhs) const {
+            return key < rhs.key;
+        }
+    };
+
+    struct ItemTimeOp {
+        bool operator() (const value_type& a
+                        , const value_type& b) const {
+            if(a == b) {
+                return false;
+            }
+            if(a->ts != b->ts) {
+                return a->ts < b->ts;
+            }
+            return a->key < b->key;
+        }
+    };
+
+public:
+    typedef std::shared_ptr<TimedLruCache> ptr;
+    typedef Item item_type;
+    typedef std::list<item_type> list_type;
+    typedef typename list_type::iterator value_type;
+    typedef std::unordered_map<K, value_type> map_type;
+    typedef std::set<value_type, ItemTimeOp> set_type;
+    typedef std::function<void(const K&, const V&)> prune_callback;
+
+    TimedLruCache(size_t max_size = 0, size_t elasticity = 0
+                    , CacheStatus* status = nullptr)
+        : m_maxSize(max_size)
+        , m_elasticity(elasticity)
+        , m_status(status) {
+        if(m_status == nullptr) {
+            m_status = new CacheStatus;
+            m_statusOwner = true;
+        }
+    }
+
+    ~TimedLruCache() {
+        if(m_status && m_statusOwner) {
+            delete m_status;
+        }
+    }
+
+    void set(const K& k, const V& v, uint64_t expired) {
+        m_status->incSet();
+        typename MutexType::Lock lock(m_mutex);
+        auto it = m_cache.find(k);
+        if(it != m_cache.end()) {
+            m_keys.splice(m_keys.begin(), m_keys, it->second);
+            m_timed.erase(it->second);
+            it->second->val = v;
+            it->second->ts = expired + seaice::utils::GetCurrentMs();
+            m_timed.insert(it->second);
+            return;
+        }
+        m_keys.emplace_front(Item(k, v, expired + seaice::utils::GetCurrentMs()));
+        m_cache.insert(std::make_pair(k, m_keys.begin()));
+        m_times.insert(m_keys.begin());
+        prune();
+    }
+
+    bool get(const K& k, const V& v) {
+        m_status->incGet();
+        typename MutexType::Lock lock(m_mutex);
+        auto it = m_cache.find(k);
+        if(it == m_cache.end()) {
+            return false;
+        }
+        m_keys.splice(m_keys.begin(), m_keys, it->second);
+        v = it->second->val;
+        lock.unlock();
+        m_status->incHit();
+        return true;
+    }
+
+    V get(const K& k) {
+        m_status->intGet();
+        typename MutexType::Lock lock(m_mutex);
+        auto it = m_cache.find(k);
+        if(it == m_cache.end()) {
+            return V();
+        }
+        m_keys.splice(m_keys.begin(), m_keys, it->second);
+        v = it->second->val;
+        lock.unlock();
+        m_status->incHit();
+        return v;
+    }
+
+    bool del(const K& k) {
+        m_status->incDel();
+        typename MutexType::Lock lock(m_mutex);
+        auto it = m_cache.find(k);
+        if(it == m_cache.end()) {
+            return false;
+        }
+        m_timed.erase(it->second);
+        m_keys.erase(it->second);
+        m_cache.erase(it);
+        return true;
+    }
+
+    bool exist(const K& k) {
+        typename MutexType::Lock lock(m_mutex);
+        return m_cache.find(k) != m_cache.end();
+    }
+
+    size_t size() {
+        typename MutexType::Lock lock(m_mutex);
+        return m_cache.size();
+    }
+
+    bool empty() {
+        typename MutexType::Lock lock(m_mutex);
+        return m_cache.empty();
+    }
+
+    bool clear() {
+        typename MutexType::Lock lock(m_mutex);
+        m_cache.clear();
+        m_timed.clear();
+        m_keys.clear();
+        return true;
+    }
+
+    void setMaxSize(const size_t& v) {
+        m_maxSize = v;
+    }
+
+    void setElasticity (const size_t& v) {
+        m_elasticity = v;
+    }
+
+    size_t getMaxSize() const {
+        return m_maxSize;
+    }
+
+    size_t getElasticity() const {
+        return m_elasticity;
+    }
+
+    size_t getMaxAllowedSize() const {
+        return m_maxSize + m_elasticity;
+    }
+
+    template<typename F>
+    void foreach(F& f) {
+        typename MutexType::Lock lock(m_mutex);
+        std::for_each(m_cache.begin(), m_cache.end(), f);
+    }
+
+    void setPruneCallback(prune_callback cb) {
+        m_cb = cb;
+    }
+
+    std::string toStatusString() {
+        std::stringstream ss;
+        ss << m_status? m_status->toString() : "(no status)"
+            << " total = " << size();
+        return ss.str();
+    }
+
+    CacheStatus* getStatus() const {
+        return m_status;
+    }
+
+    void setStatus(CacheStatus* status, bool owner = false) {
+        if(m_status && m_statusOwner) {
+            delete m_status;
+        }
+        m_status = status;
+        m_statusOwner = owner;
+        if(m_status == nullptr) {
+            m_status = new CacheStatus;
+            m_statusOwner = true;
+        }
+    }
+
+    size_t checkTimeout(const uint64_t& ts = seaice::utils::GetCurrentMs()) {
+        size_t size = 0;
+        typename MutexType::Lock lock(m_mutex);
+        for(auto it = m_timed.begin();
+                it != m_timed.end();) {
+            if(ts->ts < ts) {
+                if(m_cb) {
+                    m_cb(it->key, it->val);
+                }
+                m_cache.erase(it->key);
+                m_keys.erase(it);
+                m_timed.erase(it++);
+                ++size;
+            } else {
+                break;
+            }
+        }
+        return size;
+    }
+
+protected:
+    size_t prune() {
+        if(m_maxSize == 0 || m_cache.size() < getMaxAllowedSize()) {
+            return 0;
+        }
+        size_t count = 0;
+        while(m_cache.size() > m_maxSize) {
+            auto& back = m_keys.back();
+            if(m_cb) {
+                m_cb(back.key, back.val);
+            }
+            m_cache.erase(back.key);
+            m_timed.erase(--m_keys.end());
+            m_keys.pop_back();
+            ++count;
+        }
+        m_status->incPrune(count);
+        return count;
+    }
+
+private:
+    size_t m_maxSize;
+    size_t m_elasticity;
+    CacheStatus* m_status = nullptr;
+    MutexType m_mutex;
+    map_type m_cache;
+    list_type m_keys;
+    set_type m_timed;
+    prune_callback m_cb;
+    bool m_statusOwner = false;
+};
+
+template<typename K, typename V, typename MutexType = seaice::Mutex
+        , typename Hash = std::hash<K> >
+class HashTimedLruCache {
+public:
+    typedef std::shared_ptr<HashTimedLruCache> ptr;
+    typedef TimedLruCache<K, V, MutexType> cache_type;
+    HashTimedLruCache(size_t bucket, size_t max_size, size_t elasticity)
+        : m_bucket(bucket)
+        , m_maxSize(max_size)
+        , m_elasticity(elasticity) {
+        m_datas.resize(bucket);
+
+        size_t pre_max_size = std::ceil(max_size * 1.0 / bucket);
+        size_t pre_elasticity = std::ceil(elasticity * 1.0 / bucket);
+        m_maxSize = pre_max_size * bucket;
+        m_elasticity = pre_elasticity * bucket;
+        for(size_t i = 0; i < bucket; i++) {
+            m_datas[i] = new cache_type(pre_max_size, pre_elasticity, &m_status);
+        }
+    }
+
+    ~HashTimedLruCache() {
+        for(size_t i = 0; i < bucket; i++) {
+            delete m_datas[i];
+        }
+    }
+
+
+
+private:
+    size_t m_bucket;
+    size_t m_maxSize;
+    size_t m_elasticity;
+    Hash m_hash;
+    CacheStatus m_status;
+    std::vector<cache_type*> m_datas;
+};
+
+}
+}
+#endif
