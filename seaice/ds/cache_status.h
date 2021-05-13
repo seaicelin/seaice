@@ -18,7 +18,7 @@ namespace ds{
 */
 class CacheStatus {
 public:
-    CacheStatus() {}
+    CacheStatus();
 
     int64_t incGet(int64_t v = 1);
     int64_t incSet(int64_t v = 1);

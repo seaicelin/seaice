@@ -1,0 +1,356 @@
+https://blog.csdn.net/querw/article/details/51569274
+https://blog.csdn.net/chenjiayi_yun/article/details/8942506
+
+//LZ77无损压缩算法实现
+https://www.cnblogs.com/en-heng/p/4992916.html
+
+0. 很多年以前我曾经写过一篇文章(http://blog.csdn.net/querw/article/details/1452041)简单介绍 zlib 的使用方法,老实说当时自己都不是很明白 zlib 是怎么回事,现在想起来那个时候年轻嘛,胆子大,脸皮厚...希望用一篇新的文章纪念少不更事的无知.
+
+1. deflate算法, zlib 格式, gzip 格式
+本文并不是一篇介绍压缩算法的文章,请读者自行查阅关于 LZ77 算法的详情.deflate 是 LZ77 算法的一个增强版,对各种数据提供无损压缩,是 zlib 目前唯一实现的压缩算法.
+一段数据经过 deflate 算法压缩之后形成一段输出数据,这段输出数据就是纯粹的压缩数据,没有任何额外信息如长度,校验和等.可以直接存储或者在网络中传输原始压缩数据并由 inflate 算法解压缩,但是用户要保证数据的完整性.
+当然,我们也可以为这段原始数据额外添加一个 zlib 格式(rfc1950)的数据头/尾,使用 adler32 校验和,定义如下:
+     +---+---+
+     |CMF|FLG|    （more-->）
+     +---+---+
+     (if FLG.FDICT set)
+     +-----+-----+-----+-----+
+     |       DICTID          | （more-->）
+     +-----+-----+-----+-----+
+     +========================+----+-----+-----+----+
+     | ...compressed data...  |        ADLER32      |
+     +========================+----+-----+-----+----+
+
+2个字节的 zlib 头, 4个字节的字典(可选), deflate 原始压缩数据, 4个字节的 adler32 校验和. 这是一种非常简洁的数据包装格式.
+
+gzip(rfc1952) 是不同于 zlib 的另外一种格式的数据头/尾,使用 CRC32 校验和,定义如下:
+
+     +---+---+---+---+---+---+---+---+---+---+
+     |ID1|ID2|CM |FLG|     MTIME     |XFL|OS | (more-->)
+     +---+---+---+---+---+---+---+---+---+---+
+
+     (if FLG.FEXTRA set)
+
+     +---+---+=================================+
+     | XLEN  |...XLEN bytes of "extra field"...| (more-->)
+     +---+---+=================================+
+
+     (if FLG.FNAME set)
+
+     +=========================================+
+     |...original file name, zero-terminated...| (more-->)
+     +=========================================+
+
+     (if FLG.FCOMMENT set)
+
+     +===================================+
+     |...file comment, zero-terminated...| (more-->)
+     +===================================+
+
+     (if FLG.FHCRC set)
+
+     +---+---+
+     | CRC16 |
+     +---+---+
+
+     +=======================+
+     |...compressed blocks...| (more-->)
+     +=======================+
+
+     +---+---+---+---+---+---+---+---+
+     |     CRC32     |     ISIZE     |
+     +---+---+---+---+---+---+---+---+
+
+一个 gzip 段落由 10 字节长度的头,若干可选的附加段(由 gzip header中的 flag 字段标识是否存在),压缩数据,和4字节的 CRC32 校验和,4字节的原文长度组成.
+解压器根据压缩数据可以知道压缩数据流什么时候结束,所以没必要在数据头中包含压缩后的数据长度字段, ISIZE 等于原文长度 % 2^32 (对于小于 4GB 的数据来说 ISIZE 就是原文的长度).
+
+zip 也是一种包装格式,应该说是一组格式约定,主要针对多个文件提供打包功能,所以 zip 格式中有很多关于文件目录的信息,具体格式可以在网上搜一搜,并参考 zlib 源码包中的 minizip 项目.
+
+在 zlib 文档中, "zlib" 这个词有两种意思(很奇怪的命名),一是表示 zlib 代码库本身, 二是表示对 deflate 原始压缩数据的 "zlib" 包装格式.为了便于区分,后面我用 "libzlib" 表示前者, 用 "zlib" 表示后者.
+
+2. libzlib 设计思路 - 流
+流的定义如下:
+
+typedef struct z_stream_s {
+    z_const Bytef *next_in;     /* next input byte */
+    uInt     avail_in;  /* number of bytes available at next_in */
+    uLong    total_in;  /* total number of input bytes read so far */
+
+    Bytef    *next_out; /* next output byte should be put there */
+    uInt     avail_out; /* remaining free space at next_out */
+    uLong    total_out; /* total number of bytes output so far */
+
+    z_const char *msg;  /* last error message, NULL if no error */
+    struct internal_state FAR *state; /* not visible by applications */
+
+    alloc_func zalloc;  /* used to allocate the internal state */
+    free_func  zfree;   /* used to free the internal state */
+    voidpf     opaque;  /* private data object passed to zalloc and zfree */
+
+    int     data_type;  /* best guess about the data type: binary or text */
+    uLong   adler;      /* adler32 value of the uncompressed data */
+    uLong   reserved;   /* reserved for future use */
+} z_stream;
+
+由输入数据 xxxx_in 和输出数据 xxxx_out 组成,原始数据从输入端流入,变为压缩数据从输出端流出(解压缩反过来).
+编程的时候,用户不停的"喂"数据到 next_in 并指定它的长度 avail_in 调用压缩函数,然后从 next_out 得到压缩后的数据,长度是 avail_out.这就是整个 zlib 库的接口的设计思路.
+msg: 错误信息
+zalloc / zfree / opaque: 类似于 C++ STL 中的 allocator 的作用,如果要定制内存管理可以自己编写内存分配回收函数.
+adler: adler32 / CRC32 校验和.
+
+3. libzlib 接口
+根据前文对数据包装格式的说明可以知道真正的压缩数据其实都是相同的,由 deflate 算法计算得到,区别在于包装格式的不同,所以 libzlib API 细节的微妙之处都在于如何配置压缩器/解压器以得到不同包装格式的输出数据.
+
+3.1 基本 API
+ZEXTERN int ZEXPORT deflateInit OF((z_streamp strm, int level)):
+初始化 z_stream, 如果要使用默认的内存管理函数必须把 zalloc / zfree / opaque 设置为 Z_NULL.输出带有 zlib 数据头/尾的压缩流.
+用此函数初始化得到的压缩器就默认输出 zlib 格式的压缩数据.如果我们希望得到 gzip 格式或者原始的压缩数据怎么做呢? 于是引出另一个提供更多选项的压缩器初始化函数:
+
+ZEXTERN int ZEXPORT deflateInit2 OF((z_streamp strm,
+                                     int  level,
+                                     int  method,
+                                     int  windowBits,
+                                     int  memLevel,
+                                     int  strategy)):
+
+不同包装格式的数据输出由 windowBits 这个参数控制:
+8 ~ 15: 输出 zlib 数据头/尾, deflateInit() 中这个参数值固定为 15, 就是 zconf.h 中定义的 MAX_WBITS 的值.
+-8 ~ -15: 输出原始的压缩数据不含任何数据头/尾. 如果没有特殊要求,使用 -15 就可以,表示内部使用 32K 的 LZ77 滑动窗口.
+24 ~ 31: 输出 gzip 格式的数据,默认提供一个所有设置都清零的 gzip 数据头,如果要自定义这个数据头,可以在初始化之后, deflate() 之前调用 deflateSetHeader().
+level: 压缩级别 0 ~ 9. 0 表示不压缩, 1 表示速度最快, 9 表示压缩比最高. Z_DEFAULT_COMPRESSION (-1) 表示使用默认设置.
+method: Z_DEFLATED(8) 只是唯一支持的压缩算法.
+memLevel: 控制 libzlib 内部使用内存的大小, 1 ~ 9 数字越小内存用量也越小,花费时间越多.默认值是8.
+strategy: 内部压缩算法的编码策略,如果没有特殊要求,设置为 Z_DEFAULT_STRATEGY 就可以了(如果你有特殊要求,那你自然知道其余选项 Z_FILTERED / Z_HUFFMAN_ONLY / Z_RLE / Z_FIXED 是什么意思).
+
+ZEXTERN int ZEXPORT deflate OF((z_streamp strm, int flush)):
+flush: 如果没有特殊需求,我们可以先以 flush = Z_NO_FLUSH 调用 deflate(),在输入数据压缩完成之后,还需要以 flush = Z_FINISH 调用并确认 deflate() 返回 Z_STREAM_END 表示所有数据都已经写入到输出缓冲,一个流结束.如果一次性输入所有原文,那么也可以直接以 flush = Z_FINISH 调用 deflate(),这正是 compress() 的做法.
+用户通过设置 z_stream 中 next_in / avail_in 指定的输入把数据压缩并更新 next_out / avail_out.输入输出缓冲区都由用户分配. 还是举个例子说明: 输入缓冲区为 byte inbuf[1024] 那么 next_in = inbuf, avail_in = 1024. 因为在压缩完成之前,用户不可能知道压缩后的数据长度,所以无法准确分配(除非调用 deflateBound()计算)输出缓冲区.用户可以分配一个任意长度(大于6)的输出缓冲,比如 byte outbuf[128], 那么 next_out = outbuf, avail_out = 128. 接下来调用 deflate,然后检查 avail_in 表示输入缓冲内尚未被处理的数据长度,换而言之 1024 - avail_in 就得到了本次被处理的数据的长度.avail_out 表示输出缓冲区的剩余空间, 128 - avail_out 就是本次得到的压缩数据的长度, 只要 avail_in != 0 就重新设置avail_out 继续压缩,一旦 avail_in == 0 表示数据都已经提交完毕,然后以参数 Z_FINISH 调用 deflate(strm, Z_FINISH) 指示压缩器,数据已经提交完毕,请输出 zlib 或者 gzip 的数据尾, 如果 deflate 返回 Z_STREAM_END 就表示数据尾也已经输出了,工作完成.即使配置压缩器为输出原始压缩数据而不使用包装格式,我们也要按照这个流程调用 deflate 确保得到完整的输出数据.
+
+ZEXTERN int ZEXPORT deflateEnd OF((z_streamp strm)):
+释放 z_stream.
+
+ZEXTERN uLong ZEXPORT deflateBound OF((z_streamp strm, uLong sourceLen));
+计算压缩后的数据的长度,如果需要一次性压缩一段内存缓冲,可以调用它来估算输出缓冲的最大长度.
+
+ZEXTERN int ZEXPORT deflateSetHeader OF((z_streamp strm, gz_headerp head));
+设置自定义 gzip 头,应该在 deflateInit / deflateInit2 之后, deflate 之前调用.
+
+ZEXTERN int ZEXPORT inflateInit OF((z_streamp strm)):
+和 deflateInit 类似,使用默认参数初始化解压器. zlib 或者 gzip 数据头会被丢弃,如果需要保留数据头信息应该在 inflateInit2() 之后, inflate()之前,调用 inflateGetHeader() 提供一个 gzip 头结构 struct gz_header,一旦 libzlib 读取到一个完整的 gzip 头就会把信息填入到这个结构中, inflate() 返回后,检查 gz_header 结构的 done 字段, 1 表示数据头读取完毕; 0 表示正在解压; -1 表示没有 gzip 头,对一个 zlib 格式的压缩流使用这个函数就会得到 -1.
+
+ZEXTERN int ZEXPORT inflate OF((z_streamp strm, int flush)):
+解压缩,和 deflate 的调用流程一样,最后应该以参数 flush = Z_FINISH 调用 infate,返回 Z_STREAM_END 表示解压缩完成,并且校验和匹配.
+
+ZEXTERN int ZEXPORT inflateEnd OF((z_streamp strm)):
+释放 z_stream.
+
+ZEXTERN int ZEXPORT inflateInit2 OF((z_streamp strm, int  windowBits)):
+和 deflateInit2 对应,通常用相同的 windowBits 值就可以了.把 windowBits + 32 可以使解压器自动识别 zlib 或者 gzip 包装格式.
+
+libzlib 还提供以回调方式处理解压缩的 API: inflateBackInit / inflateBack / inflateBackEnd.
+
+3.2 工具函数
+compress / compress2 / compressBound / uncompress 是对基本 API 的组合使用,也是如何调用基本 API 的范本,我们应该仔细阅读 compress.c 和 uncompr.c.
+可以用 compressBound() 来估算压缩后的数据长度,但是没有任何方法估算解压后的原文长度,所以用户应该通过其它渠道得到原文长度,分配足够的缓冲区以调用 uncompress().
+
+3.3 其它 API
+读我的文章是不能直接通过复制粘贴来写代码的,但是看过之后应该能理解 libzlib 的使用原理(至少我希望达到这个目的),不仅仅知道要调用哪些函数,还要理解所以然.具体编写代码还是应该查看 libzlib 的文档.
+
+4. Windows平台下编译
+既然是一个自由库,我们还是下载 zlib 的源码自己编译,不要使用已经编译好的 DLL 库,访问 http://www.zlib.net/ 下载 ".zip" 格式的源码包.
+打开 "README", 看到 "For Windows, use one of the special makefiles in win32/ or contrib/vstudio/ ." 切换到 contrib/vstudio/ 目录,又发现一个 readme.txt 是关于不同版本的 VS 的一些细节, 根据自己安装的 VS 版本打开对于的工程文件(耐心阅读 readme 很有必要,少走好多弯路.)
+
+方法1 使用 Visual Studio IDE: 由于我已经安装了 Visual Studio 2013 所以直接用 VS2013 打开 /contrib/vstudio/vc11/zlibvc.sln (这其实是 VS2012 的工程文件). 编译 "zlibvc" 这是最基本的动态库 DLL 工程,提示 3 个链接错误:
+
+1>match686.obj : error LNK2026: module unsafe for SAFESEH image.
+1>inffas32.obj : error LNK2026: module unsafe for SAFESEH image.
+1>.\zlibvc.def(4): fatal error LNK1118: syntax error in 'VERSION' statement
+
+先看看 LNK1118 错误: 在 StackOverflow (http://stackoverflow.com/questions/20021950/def-file-syntax-error-in-visual-studio-2012) 看到原来是 .def 中 VERSION 定义的语法改了(其实是修正了)只允许两个数字的版本号:主版本号和副版本号.所以要么把 "VERSION 1.2.8" 改为两个数字的版本号,要么创建一个 VERSION 类型的资源.事实上 version 1.2.8 的资源已经包含在工程中,所以我们只要简单的在 zlibvc.def 中把 VERSION 这行注释掉就好了.
+再看 LNK2026 错误: SAFESEH 按字面上理解应该是 SAFE SEH - 安全的结构化异常处理, SEH 是windows平台的结构化异常处理机制,通过扩展 C 编译器 __try, __finally 关键字来控制程序流程<<Windows核心编程>>有相关内容介绍. libzlib 大概是不会使用 SEH 的.也许是因为 VS2013 把这个选项的默认设置改变了,具体什么原因导致不兼容我不知道.总之把 SAFESEH 关闭吧: 工程属性 -> Linker -> Advanced -> Image Has Safe Exception Handlers 改为 NO,重新编译,发现 testzlib 也有同样的问题,关闭 SAFESEH 再次编译就好了.
+
+库文件: zlibwapi.lib, zlibwapi.dll, zlibstat.lib(静态库)
+头文件: zconf.h, zlib.h
+
+微软这种更新一个版本就使旧工程无法编译链接的做法真是不可理喻.
+
+方法2 使用 nmake, 把 win32/Makefile.msc 复制到上一层源码目录,启动 "Developer Command Prompt for VS2013" (在开始菜单里), 用 CD 命令切换到 zlib 1.2.8 源码目录,输入 "nmake /f Makefile.msc" 编译完成.
+
+库文件: zdll.lib, zlib1.dll, zlib.lib(静态库)
+头文件: zconf.h, zlib.h
+
+5. demo
+
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+ 
+extern "C"
+{
+    #include "zlib.h"
+}
+#pragma comment(lib, "zlib.lib")
+ 
+int dump_buffer(const Bytef* buf, size_t len)
+{
+    for(size_t i = 0; i < len; ++i)
+    {
+        printf("%02x", buf[i]);
+    }
+    return 0;
+}
+ 
+int _tmain(int argc, _TCHAR* argv[])
+{
+    const char* inBuf = "1234,abcd,ABCD,^#@!.";
+    Bytef outBuf[1024] = {0};
+    Bytef restoreBuf[1024] = {0};
+    int outLen = 0;
+    int restoreLen = 0;
+    int err = 0;
+    z_stream stream;
+    int fmt = 2; // 0: zlib; 1: gzip; 2: raw
+ 
+    printf("source string:%s\r\n", inBuf);
+ 
+    // 压缩
+    stream.next_in = (z_const Bytef *)inBuf;
+    stream.avail_in = (uInt)strlen(inBuf);
+ 
+    stream.next_out = (Bytef *)outBuf;
+    stream.avail_out = 1024;
+ 
+    stream.zalloc = (alloc_func)0;
+    stream.zfree = (free_func)0;
+    stream.opaque = (voidpf)0;
+ 
+    if(0 == fmt)
+    {
+        // zlib
+        err = deflateInit(&stream, Z_DEFAULT_COMPRESSION);
+        assert(Z_OK == err);
+ 
+        err = deflate(&stream, Z_FINISH);
+        assert(err == Z_STREAM_END);
+ 
+        outLen = stream.total_out;
+ 
+        err = deflateEnd(&stream);
+ 
+        printf("zlib string(HEX):");
+    }
+    else if(1 == fmt)
+    {
+        // gzip
+        err = deflateInit2(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, MAX_WBITS + 16, 8, Z_DEFAULT_STRATEGY);
+        assert(Z_OK == err);
+ 
+        err = deflate(&stream, Z_FINISH);
+        assert(err == Z_STREAM_END);
+ 
+        outLen = stream.total_out;
+ 
+        err = deflateEnd(&stream);
+ 
+        printf("gzip string(HEX):");
+    }
+    else if(2 == fmt)
+    {
+        // raw
+        err = deflateInit2(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, MAX_WBITS * -1, 8, Z_DEFAULT_STRATEGY);
+        assert(Z_OK == err);
+ 
+        err = deflate(&stream, Z_FINISH);
+        assert(err == Z_STREAM_END);
+ 
+        outLen = stream.total_out;
+ 
+        err = deflateEnd(&stream);
+ 
+        printf("raw deflate string(HEX):");
+    }
+    else
+    {
+        assert(0);
+    }
+ 
+    dump_buffer(outBuf, outLen);
+    printf("\r\n");
+ 
+    // 解压缩
+    stream.next_in = (z_const Bytef *)outBuf;
+    stream.avail_in = (uInt)outLen;
+ 
+    stream.next_out = (Bytef *)restoreBuf;
+    stream.avail_out = 1024;
+ 
+    stream.zalloc = (alloc_func)0;
+    stream.zfree = (free_func)0;
+    stream.opaque = (voidpf)0;
+ 
+    if(0 == fmt)
+    {
+        // zlib
+        err = inflateInit(&stream);
+        assert(Z_OK == err);
+ 
+        err = inflate(&stream, Z_FINISH);
+        assert(err == Z_STREAM_END);
+ 
+        restoreLen = stream.total_out;
+ 
+        err = inflateEnd(&stream);
+    }
+    else if(1 == fmt)
+    {
+        // gzip
+        err = inflateInit2(&stream, MAX_WBITS + 16);
+        assert(Z_OK == err);
+ 
+        err = inflate(&stream, Z_FINISH);
+        assert(err == Z_STREAM_END);
+ 
+        restoreLen = stream.total_out;
+ 
+        err = inflateEnd(&stream);
+    }
+    else if(2 == fmt)
+    {
+        // raw
+        err = inflateInit2(&stream, MAX_WBITS * -1);
+        assert(Z_OK == err);
+ 
+        err = inflate(&stream, Z_FINISH);
+        assert(err == Z_STREAM_END);
+ 
+        restoreLen = stream.total_out;
+ 
+        err = inflateEnd(&stream);
+    }
+    else
+    {
+        assert(0);
+    }
+ 
+    printf("restored string:%s\r\n", (char*)restoreBuf);
+ 
+    printf("Press Enter to continue...");
+    getchar();
+    return err;
+}
+
+
+fmt 分别设置为 0, 1, 2 时的运行结果:
+source string:1234,abcd,ABCD,^#@!.
+zlib string(HEX):789c33343236d1494c4a4ed171747276d189537650d40300357804f3
+restored string:1234,abcd,ABCD,^#@!.
+
+source string:1234,abcd,ABCD,^#@!.
+gzip string(HEX):1f8b080000000000000b33343236d1494c4a4ed171747276d189537650d4030065d6b0c314000000
+restored string:1234,abcd,ABCD,^#@!.
+
+source string:1234,abcd,ABCD,^#@!.
+raw deflate string(HEX):33343236d1494c4a4ed171747276d189537650d40300
+restored string:1234,abcd,ABCD,^#@!.
+
+可以看到中间的压缩数据都是相同的,只是头尾不同.

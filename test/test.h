@@ -33,3 +33,13 @@
 #include "../seaice/env.h"
 #include <fstream>
 #include "../seaice/config2.h"
+#include "../seaice/worker.h"
+#include "../seaice/http/http_server.h"
+#include "../seaice/http/http.h"
+#include "../seaice/http/http_session.h"
+#include "../seaice/http/ws_session.h"
+#include "../seaice/http/ws_connection.h"
+#include "../seaice/http/ws_servlet.h"
+#include "../seaice/http/ws_server.h"
+#include "../seaice/application.h"
+#include "../seaice/ds/timed_cache.h"

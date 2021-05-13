@@ -6,6 +6,7 @@
 #include <set>
 #include <vector>
 #include <functional>
+#include <iostream>
 #include <unordered_map>
 #include "cache_status.h"
 #include "../utils.h"
@@ -31,10 +32,19 @@ private:
         uint64_t ts;
 
         bool operator< (const Item& rhs) const {
-            if(ts != ths.ts) {
+            if(ts != rhs.ts) {
                 return ts < rhs.ts;
             }
-            return key < ths.key;
+            return key < rhs.key;
+        }
+
+        std::string toString() const {
+            std::stringstream ss;
+            ss << "[key = " << key
+               << ", val = " << val
+               << ", ts = " << ts
+               << "]";
+            return ss.str();
         }
     };
 public:
@@ -68,18 +78,22 @@ public:
         if(it != m_cache.end()) {
             m_cache.erase(it);
         }
-        auto sit = m_timed.insert(Item(k, v, timeout_ms + seaice::utils::GetCurrentMs()));
-        m_cache.insert(std::make_pair<k, sit.first>);
+        auto sit = m_timed.insert(Item(k, v, timeout_ms + seaice::utils::getCurrentMs()));
+        m_cache.insert(std::make_pair(k, sit.first));
+        //std::cout << "set : k = " << k << " v = " << v << std::endl;
+        //std::cout << "set: " << sit.first->toString() << std::endl;
         prune();
     }
 
     bool get(const K& k, V& v) {
         m_status->incGet();
-        typename RWMutexType::WriteLock lock(m_mutex);
+        typename RWMutexType::ReadLock lock(m_mutex);
         auto it = m_cache.find(k);
         if(it == m_cache.end()) {
+            lock.unlock();
             return false;
         }
+        //std::cout << " get: " << (it->second)->toString() << std::endl;
         v = it->second->val;
         lock.unlock();
         m_status->incHit();
@@ -88,15 +102,16 @@ public:
 
     V get(const K& k) {
         m_status->incGet();
-        typename RWMutexType::WriteLock lock(m_mutex);
+        typename RWMutexType::ReadLock lock(m_mutex);
         auto it = m_cache.find(k);
         if(it == m_cache.end()) {
+            lock.unlock();
             return V();
         }
         auto v = it->second->val;
         lock.unlock();
         m_status->incHit();
-        return true;
+        return v;
     }
 
     bool del(const K& k) {
@@ -112,14 +127,14 @@ public:
         m_status->incHit();
     }
 
-    bool expired(const K& k, const uint64_t& ms) {
+    bool expired(const K& k, const uint64_t& ts) {
         typename RWMutexType::WriteLock lock(m_mutex);
         auto it = m_cache.find(k);
         if(it == m_cache.end()) {
             return false;
         }
-        uint64_t tts = ts + seaice::utils::GetCurrentMs();
-        if(tts == ms) {
+        uint64_t tts = ts + seaice::utils::getCurrentMs();
+        if(tts == it->second->ts) {
             return true;
         }
         auto item = *it->second;
@@ -183,8 +198,8 @@ public:
 
     std::string toStatusString() {
         std::stringstream ss;
-        ss << m_status? m_status->toString() : "(no status)"
-            << " total = " << size();
+        ss << (m_status? m_status->toString() : std::string("(no status)"));
+        ss << " total = " << size();
         return ss.str();
     }
 
@@ -204,7 +219,7 @@ public:
         }
     }
 
-    size_t checkTimeout(const uint64_t& ts = seaice::utils::GetCurrentMs()) {
+    size_t checkTimeout(const uint64_t& ts = seaice::utils::getCurrentMs()) {
         size_t sz = 0;
         typename RWMutexType::WriteLock lock(m_mutex);
         for(auto it = m_timed.begin();
@@ -276,7 +291,7 @@ public:
     }
 
     ~HashTimeCache() {
-        for(size_t i = 0; i < bucket; i++) {
+        for(size_t i = 0; i < m_bucket; i++) {
             delete m_datas[i];
         }
     }
@@ -308,7 +323,7 @@ public:
     size_t size() {
         size_t total = 0;
         for(auto& i : m_datas) {
-            total ++ i->size();
+            total += i->size();
         }
         return total;
     }
@@ -379,8 +394,8 @@ public:
         return ss.str();
     }
 
-    size_t checkTimeout(const uint64_t& ts = seaice::utils::GetCurrentMs()) {
-        size_t sz;
+    size_t checkTimeout(const uint64_t& ts = seaice::utils::getCurrentMs()) {
+        size_t sz = 0;
         for(auto& i : m_datas) {
             sz += i->checkTimeout(ts);
         }

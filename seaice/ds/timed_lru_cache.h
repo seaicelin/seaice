@@ -33,6 +33,16 @@ private:
         }
     };
 
+public:
+    typedef std::shared_ptr<TimedLruCache> ptr;
+    typedef Item item_type;
+    typedef std::list<item_type> list_type;
+    typedef typename list_type::iterator value_type;
+    typedef std::unordered_map<K, value_type> map_type;
+
+    typedef std::function<void(const K&, const V&)> prune_callback;
+
+private:
     struct ItemTimeOp {
         bool operator() (const value_type& a
                         , const value_type& b) const {
@@ -47,13 +57,7 @@ private:
     };
 
 public:
-    typedef std::shared_ptr<TimedLruCache> ptr;
-    typedef Item item_type;
-    typedef std::list<item_type> list_type;
-    typedef typename list_type::iterator value_type;
-    typedef std::unordered_map<K, value_type> map_type;
     typedef std::set<value_type, ItemTimeOp> set_type;
-    typedef std::function<void(const K&, const V&)> prune_callback;
 
     TimedLruCache(size_t max_size = 0, size_t elasticity = 0
                     , CacheStatus* status = nullptr)
@@ -80,17 +84,17 @@ public:
             m_keys.splice(m_keys.begin(), m_keys, it->second);
             m_timed.erase(it->second);
             it->second->val = v;
-            it->second->ts = expired + seaice::utils::GetCurrentMs();
+            it->second->ts = expired + seaice::utils::getCurrentMs();
             m_timed.insert(it->second);
             return;
         }
-        m_keys.emplace_front(Item(k, v, expired + seaice::utils::GetCurrentMs()));
+        m_keys.emplace_front(Item(k, v, expired + seaice::utils::getCurrentMs()));
         m_cache.insert(std::make_pair(k, m_keys.begin()));
-        m_times.insert(m_keys.begin());
+        m_timed.insert(m_keys.begin());
         prune();
     }
 
-    bool get(const K& k, const V& v) {
+    bool get(const K& k, V& v) {
         m_status->incGet();
         typename MutexType::Lock lock(m_mutex);
         auto it = m_cache.find(k);
@@ -105,14 +109,14 @@ public:
     }
 
     V get(const K& k) {
-        m_status->intGet();
+        m_status->incGet();
         typename MutexType::Lock lock(m_mutex);
         auto it = m_cache.find(k);
         if(it == m_cache.end()) {
             return V();
         }
         m_keys.splice(m_keys.begin(), m_keys, it->second);
-        v = it->second->val;
+        auto v = it->second->val;
         lock.unlock();
         m_status->incHit();
         return v;
@@ -186,7 +190,7 @@ public:
 
     std::string toStatusString() {
         std::stringstream ss;
-        ss << m_status? m_status->toString() : "(no status)"
+        ss << (m_status? m_status->toString() : "(no status)")
             << " total = " << size();
         return ss.str();
     }
@@ -207,17 +211,17 @@ public:
         }
     }
 
-    size_t checkTimeout(const uint64_t& ts = seaice::utils::GetCurrentMs()) {
+    size_t checkTimeout(const uint64_t& ts = seaice::utils::getCurrentMs()) {
         size_t size = 0;
         typename MutexType::Lock lock(m_mutex);
         for(auto it = m_timed.begin();
                 it != m_timed.end();) {
-            if(ts->ts < ts) {
+            if((*it)->ts <= ts) {
                 if(m_cb) {
-                    m_cb(it->key, it->val);
+                    m_cb((*it)->key, (*it)->val);
                 }
-                m_cache.erase(it->key);
-                m_keys.erase(it);
+                m_cache.erase((*it)->key);
+                m_keys.erase((*it));
                 m_timed.erase(it++);
                 ++size;
             } else {
@@ -281,12 +285,120 @@ public:
     }
 
     ~HashTimedLruCache() {
-        for(size_t i = 0; i < bucket; i++) {
+        for(size_t i = 0; i < m_bucket; i++) {
             delete m_datas[i];
         }
     }
 
+    void set(const K& k, const V& v, uint64_t expired) {
+        m_datas[m_hash(k) % m_bucket]->set(k, v, expired);
+    }
 
+    void expired(const K& k, const uint64_t& ts) {
+        return m_datas[m_hash(k) % m_bucket]->expired(k, ts);
+    }
+
+    bool get(const K& k, V& v) {
+        return m_datas[m_hash(k) % m_bucket]->get(k, v);
+    }
+
+    V get(const K& k) {
+        return m_datas[m_hash(k) % m_bucket]->get(k);
+    }
+
+    bool del(const K& k) {
+        return m_datas[m_hash(k) % m_bucket]->del(k);
+    }
+
+    bool exist(const K& k) {
+        return m_datas[m_hash(k) % m_bucket]->exist(k);
+    }
+
+    size_t size() {
+        size_t total = 0;
+        for(auto& i : m_datas) {
+            total += i->size();
+        }
+        return total;
+    }
+
+    bool empty() {
+        for(auto& i : m_datas) {
+            if(!i->empty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    void clear() {
+        for(auto& i : m_datas) {
+            i->clear();
+        }
+    }
+
+    size_t getMaxSize() const {
+        return m_maxSize;
+    }
+
+    size_t getElasticity() const {
+        return m_elasticity;
+    }
+
+    size_t getMaxAllowedSize() const {
+        return m_elasticity + m_maxSize;
+    }
+
+    size_t getBucket() const {
+        return m_bucket;
+    }
+
+    void setMaxSize(const size_t& v) {
+        size_t pre_max_size = std::ceil(v / m_bucket);
+        m_maxSize = pre_max_size * m_bucket;
+        for(auto& i : m_datas) {
+            i->setMaxSize(pre_max_size);
+        }
+    }
+
+    void setElasticity(const size_t& v) {
+        size_t pre_elasticity = std::ceil(v * 1.0 / m_bucket);
+        m_elasticity = pre_elasticity * m_bucket;
+        for(auto& i : m_datas) {
+            i->setElasticity(pre_elasticity);
+        }
+    }
+
+    template<typename F>
+    void foreach(F& f) {
+        for(auto& i : m_datas) {
+            i->foreach(f);
+        }
+    }
+
+    void setPruneCallback(typename cache_type::prune_callback cb) {
+        for(auto& i : m_datas) {
+            i->setPruneCallback(cb);
+        }
+    }
+
+    CacheStatus* getStatus() {
+        return &m_status;
+    }
+
+    std::string toStatusString() {
+        std::stringstream ss;
+        ss << m_status.toString() << " total = " << size();
+        return ss.str();
+    }
+
+    size_t checkTimeout(const uint64_t& ts = seaice::utils::getCurrentMs()) {
+        size_t sz;
+        for(auto& i : m_datas) {
+            sz += i->checkTimeout(ts);
+        }
+        return sz;
+    }
 
 private:
     size_t m_bucket;

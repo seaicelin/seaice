@@ -1,0 +1,29 @@
+Linux NIO 系列(01) 五种网络 IO 模型
+
+https://www.cnblogs.com/binarylei/p/8933516.html
+
+一、基本概念
+1.1 用户空间与内核空间
+1.2 进程切换
+1.3 进程的阻塞
+1.4 文件描述符 fd
+1.5 缓存 IO
+二、Linux IO 模型
+2.1 同步阻塞 IO (blocking IO)
+(1) 场景描述
+(2) 网络模型
+(3) 流程描述
+2.2 同步非阻塞 IO (nonblocking IO)
+(1) 场景描述
+(2) 网络模型
+(3) 流程描述
+2.3 IO 多路复用 (IO multiplexing)
+(1) 场景描述
+(2) 网络模型
+(3) 流程描述
+2.4 信号驱动式IO (signal-driven IO)
+2.5 异步非阻塞 IO (asynchronous IO)
+(1) 场景描述
+(2) 网络模型
+(3) 流程描述
+2.6 关于异步阻塞

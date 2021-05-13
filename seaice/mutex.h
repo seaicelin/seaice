@@ -35,7 +35,8 @@ public:
     }
 
     ~ScopedLockImpl() {
-        m_mutex.unlock();
+        //m_mutex.unlock();
+        unlock();
     }
 
     void lock() {
@@ -66,7 +67,8 @@ public:
     }
 
     ~ReadScopedLockImpl() {
-        m_mutex.unlock();
+        //m_mutex.unlock();
+        unlock();
     }
 
     void lock() {
@@ -97,7 +99,8 @@ public:
     }
 
     ~WriteScopedLockImpl() {
-        m_mutex.unlock();
+        //m_mutex.unlock();
+        unlock();
     }
 
     void lock() {

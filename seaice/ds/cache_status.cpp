@@ -7,6 +7,15 @@ namespace ds {
 
 using namespace seaice::utils;
 
+CacheStatus::CacheStatus() 
+    : m_set(0)
+    , m_get(0)
+    , m_del(0)
+    , m_timeout(0)
+    , m_prune(0)
+    , m_hit(0) {
+}
+
 int64_t CacheStatus::incGet(int64_t v) {
     return Atomic::addFetch(m_get, v);
 }
