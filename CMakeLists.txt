@@ -21,15 +21,19 @@ set(CMAKE_CXX_FLAGS "-std=c++11 -pthread -rdynamic -lrt -Wl,--no-as-needed -ldl"
 #add_executable(test ${TEST_SRC})
 
 #add openssl header file
-include_directories(/usr/local/ssl/include)
+set(INCLUDE_DIR /usr/local/zlib-1.2.11/include
+                /usr/local/ssl/include)
+include_directories(${INCLUDE_DIR})
 
 set(LINK_DIR /usr/local/ssl/lib
-             /usr/local/lib/)
+             /usr/local/lib/
+            /usr/local/zlib-1.2.11/lib)
 link_directories(${LINK_DIR})
 
 set(LINK_LIB libyaml-cpp.so
              libssl.so
-             libcrypto.so)
+             libcrypto.so
+             libz.so)
 
 set(SEAICE_SRC  
                 seaice/address.cpp
@@ -60,6 +64,8 @@ set(SEAICE_SRC
                 seaice/library.cpp
                 seaice/module.cpp
                 seaice/mutex.cpp
+                seaice/protocol.cpp
+                seaice/rock_protocol.cpp
                 seaice/scheduler.cpp
                 seaice/socket.cpp
                 seaice/socketstream.cpp
@@ -70,7 +76,8 @@ set(SEAICE_SRC
                 seaice/utils.cpp
                 seaice/uri.cpp
                 seaice/util/hash_util.cpp
-                seaice/worker.cpp)
+                seaice/worker.cpp
+                seaice/zlib_stream.cpp)
 
 #set(TESTSRC  test/testLog.cpp)
 #add_executable(testlog ${TESTSRC} ${SEAICE_SRC})
@@ -156,6 +163,7 @@ set(SEAICE_SRC
 #add_executable(test_config2 ${TESTSRC} ${SEAICE_SRC})
 #target_link_libraries(test_config2 /usr/local/lib/libyaml-cpp.so)
 
+if(flase)
 set(TESTSRC  test/test_application.cpp)
 add_executable(test_application ${TESTSRC} ${SEAICE_SRC})
 target_link_libraries(test_application ${LINK_LIB})
@@ -176,6 +184,19 @@ set(TESTSRC  test/test_worker.cpp)
 add_executable(test_worker ${TESTSRC} ${SEAICE_SRC})
 target_link_libraries(test_worker ${LINK_LIB})
 
+set(TESTSRC  test/test_timed_cache.cpp)
+add_executable(test_timed_cache ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_timed_cache ${LINK_LIB})
+
+set(TESTSRC  test/test_timed_lru_cache.cpp)
+add_executable(test_timed_lru_cache ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_timed_lru_cache ${LINK_LIB})
+
+endif()
+
+set(TESTSRC  test/test_zlib_stream.cpp)
+add_executable(test_zlib_stream ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_zlib_stream ${LINK_LIB})
 
 # 指定编译器
 #set(cmake_c_flags_debug "-g -Wall)

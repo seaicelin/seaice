@@ -188,6 +188,15 @@ int ZlibStream::flush() {
     }
 }
 
+seaice::ByteArray::ptr ZlibStream::getByteArray() {
+    seaice::ByteArray::ptr ba(new ByteArray);
+    for(auto& i : m_buffs) {
+        ba->write((const char*)i.iov_base, i.iov_len);
+    }
+    ba->setPos(0);
+    return ba;
+}
+
 std::string ZlibStream::getResult() const {
     std::string rt;
     for(auto& i : m_buffs) {

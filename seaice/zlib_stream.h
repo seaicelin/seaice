@@ -116,7 +116,7 @@ public:
 
     std::vector<iovec>& getBuffers() {return m_buffs;};
     std::string getResult() const;
-
+    seaice::ByteArray::ptr getByteArray();
 private:
     int init(Type type = DEFLATE, int level = DEFAULT_COMPRESSION
             ,int window_bits = 15, int memlevel = 8, Strategy stragey = DEFAULT);

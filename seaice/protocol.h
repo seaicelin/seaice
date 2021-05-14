@@ -9,7 +9,7 @@ namespace seaice {
 
 class Message {
 public:
-    typedef std::share_ptr<Message> ptr;
+    typedef std::shared_ptr<Message> ptr;
     enum MessageType {
         REQUEST = 1,
         RESPONSE = 2,
@@ -33,9 +33,9 @@ class MessageDecoder
 public:
     typedef std::shared_ptr<MessageDecoder> ptr;
     //MessageDecoder();
-    virtual ~MessageDecoder();
+    virtual ~MessageDecoder() {}
     virtual Message::ptr parseFrom(Stream::ptr stream) = 0;
-    virtual int32_t serilizeTo(Stream::ptr stream, Message::ptr msg) = 0;
+    virtual int32_t serializeTo(Stream::ptr stream, Message::ptr msg) = 0;
 };
 
 class Request : public Message
@@ -43,7 +43,7 @@ class Request : public Message
 public:
     typedef std::shared_ptr<Request> ptr;
     Request();
-    //~Request();
+    virtual ~Request();
 
     uint32_t getSn() const {return m_sn;}
     uint32_t getCmd() const {return m_cmd;}
@@ -63,7 +63,7 @@ class Response : public Message
 public:
     typedef std::shared_ptr<Response> ptr;
     Response();
-    ~Response();
+    virtual ~Response();
 
     uint32_t getSn() const {return m_sn;}
     uint32_t getCmd() const {return m_cmd;}
@@ -80,7 +80,7 @@ public:
 protected:
     uint32_t m_sn;
     uint32_t m_cmd;
-    uint32_t m_result
+    uint32_t m_result;
     std::string m_resultStr;
 };
 
@@ -89,7 +89,8 @@ class Notify : public Message
 public:
     typedef std::shared_ptr<Notify> ptr;
     Notify();
-    //~Notify();
+    virtual ~Notify();
+
     uint32_t getNotify() const {return m_notify;}
     void setNotify(uint32_t v) {m_notify = v;}
     virtual bool serializeToByteArray(ByteArray::ptr bytearray) override;
