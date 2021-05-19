@@ -38,6 +38,7 @@ set(LINK_LIB libyaml-cpp.so
 set(SEAICE_SRC  
                 seaice/address.cpp
                 seaice/application.cpp
+                seaice/async_socket_stream.cpp
                 seaice/bytearray.cpp
                 seaice/config.cpp
                 seaice/config2.cpp
@@ -66,6 +67,7 @@ set(SEAICE_SRC
                 seaice/mutex.cpp
                 seaice/protocol.cpp
                 seaice/rock_protocol.cpp
+                seaice/rockstream.cpp
                 seaice/scheduler.cpp
                 seaice/socket.cpp
                 seaice/socketstream.cpp

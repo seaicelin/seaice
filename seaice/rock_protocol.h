@@ -49,7 +49,7 @@ public:
     ~RockRequest() {}
     virtual std::string toString() const override;
     virtual const std::string& getName() const override;
-    virtual int32_t getType() const override;
+    virtual MessageType getType() const override;
 
     virtual bool serializeToByteArray(ByteArray::ptr ba) override;    
     virtual bool parseFromByteArray(ByteArray::ptr ba) override;
@@ -62,7 +62,7 @@ public:
     ~RockResponse() {}
     virtual std::string toString() const override;
     virtual const std::string& getName() const override;
-    virtual int32_t getType() const override;
+    virtual MessageType getType() const override;
 
     virtual bool serializeToByteArray(ByteArray::ptr ba) override;    
     virtual bool parseFromByteArray(ByteArray::ptr ba) override;
@@ -76,7 +76,7 @@ public:
     ~RockNotify() {}
     virtual std::string toString() const override;
     virtual const std::string& getName() const override;
-    virtual int32_t getType() const override;
+    virtual MessageType getType() const override;
 
     virtual bool serializeToByteArray(ByteArray::ptr ba) override;    
     virtual bool parseFromByteArray(ByteArray::ptr ba) override;

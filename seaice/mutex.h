@@ -231,7 +231,7 @@ class Scheduler;
 class FiberSemaphore : public seaice::Noncopyable {
 public:
     typedef SpinLock MutexType;
-    FiberSemaphore(size_t num);
+    FiberSemaphore(size_t num = 0);
 
     bool tryWait();
     void wait();

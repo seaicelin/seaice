@@ -35,7 +35,7 @@ const std::string& RockRequest::getName() const {
     return s_name;
 }
 
-int32_t RockRequest::getType() const {
+Message::MessageType RockRequest::getType() const {
     return Message::REQUEST;
 }
 
@@ -79,7 +79,7 @@ const std::string& RockResponse::getName() const {
     return s_name;
 }
 
-int32_t RockResponse::getType() const {
+Message::MessageType RockResponse::getType() const {
     return Message::RESPONSE;
 }
 
@@ -121,7 +121,7 @@ const std::string& RockNotify::getName() const {
     return s_name;
 }
 
-int32_t RockNotify::getType() const {
+Message::MessageType RockNotify::getType() const {
     return Message::NOTIFY;
 }
 

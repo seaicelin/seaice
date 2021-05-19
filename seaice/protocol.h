@@ -25,7 +25,7 @@ public:
 
     virtual std::string toString() const = 0;
     virtual const std::string& getName() const = 0;
-    virtual int32_t getType() const = 0;
+    virtual MessageType getType() const = 0;
 };
 
 class MessageDecoder
