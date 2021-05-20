@@ -66,8 +66,11 @@ set(SEAICE_SRC
                 seaice/module.cpp
                 seaice/mutex.cpp
                 seaice/protocol.cpp
-                seaice/rock_protocol.cpp
-                seaice/rockstream.cpp
+                seaice/rock/rock_connection.cpp
+                seaice/rock/rock_session.cpp
+                seaice/rock/rock_protocol.cpp
+                seaice/rock/rockstream.cpp
+                seaice/rock/rock_server.cpp
                 seaice/scheduler.cpp
                 seaice/socket.cpp
                 seaice/socketstream.cpp
@@ -199,6 +202,14 @@ endif()
 set(TESTSRC  test/test_zlib_stream.cpp)
 add_executable(test_zlib_stream ${TESTSRC} ${SEAICE_SRC})
 target_link_libraries(test_zlib_stream ${LINK_LIB})
+
+set(TESTSRC  test/test_rock_client.cpp)
+add_executable(test_rock_client ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_rock_client ${LINK_LIB})
+
+set(TESTSRC  test/test_rock_server.cpp)
+add_executable(test_rock_server ${TESTSRC} ${SEAICE_SRC})
+target_link_libraries(test_rock_server ${LINK_LIB})
 
 # 指定编译器
 #set(cmake_c_flags_debug "-g -Wall)

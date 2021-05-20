@@ -4,7 +4,7 @@
 #include <list>
 #include <unordered_map>
 #include <memory>
-#include "rock_protocol.h"
+//#include "rock_protocol.h"
 #include "mutex.h"
 #include "iomanager.h"
 #include "socketstream.h"
@@ -17,7 +17,7 @@
     2.3，包括序列号，用以记录当前的消息序列号
     2.4，保存之前使用的 scheduler，重新调度 fiber
 3, 发送回复消息使用 list《ctx》 保存，仅仅发送。
-4, list,锁，map， 锁
+4, list,锁，map，锁
 5. 
 */
 
