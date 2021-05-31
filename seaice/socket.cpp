@@ -155,6 +155,8 @@ bool Socket::bind(const Address::ptr addr) {
 }
 
 bool Socket::connect(const Address::ptr addr, uint64_t timeout_ms) {
+    SEAICE_LOG_DEBUG(logger)  << "Socket::connect addr:" << addr->toString()
+        << " timeout = " << timeout_ms;
     if(!isValid()) {
         newSock();
         if(m_sock == -1) {
@@ -176,7 +178,7 @@ bool Socket::connect(const Address::ptr addr, uint64_t timeout_ms) {
             return false;
         }
     } else {
-        if(connect_with_timeout(m_sock, addr->getAddr(), addr->getAddrLen(), timeout_ms)) {
+        if(connect_with_timeout(m_sock, addr->getAddr(), addr->getAddrLen(), timeout_ms) != 0) {
             SEAICE_LOG_ERROR(logger) << "connect(" << m_sock << ")" <<
                 " timeout = " << timeout_ms <<
                 " errno = " << errno << " errno str = " << strerror(errno);

@@ -84,10 +84,12 @@ public:
 
 struct RockMsgHeader {
     RockMsgHeader();
-    uint8_t magic[2];
-    uint8_t version;
-    uint8_t flag;
+    uint8_t magic[2] = {0xab, 0xcd};
+    uint8_t version = 0x01;
+    uint8_t flag = 0;
     uint32_t length;
+
+    std::string toString();
 };
 
 class RockMessageDecoder : public MessageDecoder

@@ -507,6 +507,7 @@ int connect_with_timeout(int fd, const struct sockaddr* addr,
     seaice::Timer::ptr timer;
     std::shared_ptr<timer_info> tinfo(new timer_info);
     std::weak_ptr<timer_info> winfo(tinfo);
+    tinfo->cancelled = 0;
     //-1 0xffffffffffffffff
     if(timeout_ms != (uint64_t)-1) {
         timer = iom->addTimer(timeout_ms, [winfo, iom, fd](){
@@ -514,19 +515,21 @@ int connect_with_timeout(int fd, const struct sockaddr* addr,
             if(!t || t->cancelled) {
                 return;
             }
+            SEAICE_LOG_DEBUG(logger) << "timeout fd = " << fd;
             t->cancelled = ETIMEDOUT;
             iom->cancelEvent(fd, seaice::IOManager::WRITE);
         });
     }
     int rt = iom->addEvent(fd, seaice::IOManager::WRITE);
     if(rt == 0) {
-        SEAICE_LOG_DEBUG(logger) << "hook connect yieldToHold start hold";
+        SEAICE_LOG_DEBUG(logger) << "hook connect yieldToHold start hold fd = " << fd;
         seaice::Fiber::yieldToHold();
-        SEAICE_LOG_DEBUG(logger) << "hook connect yieldToHold end hold";
+        SEAICE_LOG_DEBUG(logger) << "hook connect yieldToHold end hold fd = " << fd;
         if(timer) {
             timer->cancel();
         }
         if(tinfo->cancelled) {
+            SEAICE_LOG_ERROR(logger) << "tinfo cancelled";
             errno = tinfo->cancelled;
             return -1;
         }
@@ -540,14 +543,17 @@ int connect_with_timeout(int fd, const struct sockaddr* addr,
     int error = 0;
     socklen_t len = sizeof(int);
     if(-1 == getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len)) {
+        SEAICE_LOG_ERROR(logger) << "getsockopt failed";
         return -1;
     }
-    if(!error) {
-        return 0;
-    } else {
+    if(error != 0) {
         errno = error;
+        SEAICE_LOG_ERROR(logger) << "getsockopt error =" << errno
+            << strerror(errno);
         return -1;
     }
+    SEAICE_LOG_DEBUG(logger) << "connect_with_timeout success";
+    return 0;
 }
 
 }//extern

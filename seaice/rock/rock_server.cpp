@@ -8,6 +8,7 @@ namespace seaice {
 static Logger::ptr logger = SEAICE_LOGGER("system");
 
 void RockServer::handleClient(Socket::ptr sock) {
+    //sock->setRecvTimeout(10000);
     RockSession::ptr session(new RockSession(sock));
     session->setRequestHandler([](RockRequest::ptr req, RockResponse::ptr rsp
                              , Stream::ptr stream) {

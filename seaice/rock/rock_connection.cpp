@@ -35,8 +35,9 @@ RockConnection::ptr RockConnection::Create(const std::string& url, uint64_t time
                     + " errstr = " + std::string(strerror(errno));
         return nullptr;
     }
-    if(!sock->connect(addr)) {
+    if(sock->connect(addr) == false) {
         SEAICE_LOG_ERROR(logger) << "socket connect fail: " + addr->toString();
+        sock->close();
         return nullptr;
     }
     sock->setRecvTimeout(timeout_ms);

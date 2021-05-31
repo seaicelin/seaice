@@ -20,6 +20,7 @@ RockStream::RockStream(Socket::ptr sock
 
 bool RockStream::sendMessage(Message::ptr msg) {
     RockCtx::ptr ctx(new RockCtx);
+    ctx->req = msg;
     enqueue(ctx);
 }
 
@@ -28,6 +29,7 @@ RockStream::Ctx::ptr RockStream::request(RockRequest::ptr req) {
     ctx->sn = req->getSn();
     ctx->fiber = Fiber::getThis();
     ctx->sch = Scheduler::getThis();
+    ctx->req = req;
     addCtx(ctx);
     enqueue(ctx);
     Fiber::yieldToHold();
@@ -36,7 +38,7 @@ RockStream::Ctx::ptr RockStream::request(RockRequest::ptr req) {
         SEAICE_LOG_ERROR(logger) << "request error, no rsp";
         return nullptr;
     } else {
-        SEAICE_LOG_ERROR(logger) << "req sn = " << req->getSn() <<" success";
+        SEAICE_LOG_DEBUG(logger) << "req sn = " << req->getSn() <<" success";
         return ctx;
     }
 }
@@ -48,7 +50,7 @@ RockStream::Ctx::ptr RockStream::doRecv() {
         close();
         return nullptr;
     }
-
+    SEAICE_LOG_DEBUG(logger) << "doRecv";
     Message::MessageType type = msg->getType();
     if(msg->getType() == Message::REQUEST) {
         auto req = std::dynamic_pointer_cast<RockRequest>(msg);

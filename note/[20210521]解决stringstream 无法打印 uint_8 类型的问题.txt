@@ -1,0 +1,38 @@
+https://stackoverflow.com/questions/19562103/uint8-t-cant-be-printed-with-cout
+
+uint8_t can't be printed with cout
+
+
+I have a weird problem about working with integers in C++.
+
+I wrote a simple program that sets a value to a variable and then prints it, but it is not working as expected.
+
+My program has only two lines of code:
+
+uint8_t aa = 5;
+
+cout << "value is " << aa << endl;
+The output of this program is value is
+
+I.e., it prints blank for aa.
+
+When I change uint8_t to uint16_t the above code works like a charm.
+
+I use Ubuntu 12.04 (Precise Pangolin), 64-bit, and my compiler version is:
+
+gcc version 4.6.3 (Ubuntu/Linaro 4.6.3-1ubuntu5)
+
+
+
+You have to convert aa to unsigned int to output the numeric value, since ostream& operator<<(ostream&, unsigned char) tries to output the visible character value.
+
+uint8_t aa=5;
+
+cout << "value is " << unsigned(aa) << endl;
+
+
+
+Adding a unary + operator before the variable of any primitive data type will give printable numerical value instead of ASCII character(in case of char type).
+
+uint8_t aa = 5;
+cout<<"value is "<< +aa <<endl; // value is 5

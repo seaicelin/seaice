@@ -17,7 +17,7 @@ public:
     struct RockCtx : public Ctx {
         typedef std::shared_ptr<RockCtx> ptr;
 
-        RockRequest::ptr req;
+        Message::ptr req;
         RockResponse::ptr rsp;
 
         virtual uint32_t doSend(Stream::ptr stream) override;

@@ -3,17 +3,25 @@
 #include "../seaice/rock/rock_server.h"
 #include "../seaice/rock/rock_connection.h"
 
+static seaice::Logger::ptr logger = SEAICE_LOGGER("system");
+
 void run() {
-    auto conn = seaice::RockConnection::Create("http://0.0.0.0:8080/seaice", 1000);
+    auto conn = seaice::RockConnection::Create("http://0.0.0.0:8080/seaice");
+    if(conn == nullptr) {
+        SEAICE_LOG_ERROR(logger) << "can not create RockConnection!";
+        return;
+    }
     conn->start();
     uint32_t sn = 0;
-    while(true) {
+    seaice::Timer::ptr timer(new seaice::Timer(4000, [conn, &sn] () {
         seaice::RockRequest::ptr req(new seaice::RockRequest);
         req->setSn(++sn);
         req->setBody("client req");
         conn->request(req);
-        sleep(2);
-    }
+    }, true));
+
+    seaice::IOManager* iom = seaice::IOManager::GetThis();
+    iom->addTimer(timer);
 }
 
 int main(int argc, char const *argv[])

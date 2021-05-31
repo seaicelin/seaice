@@ -25,6 +25,7 @@ std::string RockRequest::toString() const {
     std::stringstream ss;
     ss  << "[RockRequest sn = " << m_sn
         << " cmd = " << m_cmd
+        << " body = " << m_body
         << " body.length = " << m_body.size()
         << "]";
     return ss.str();
@@ -69,6 +70,7 @@ std::string RockResponse::toString() const {
         << " cmd = " << m_cmd
         << " result = " << m_result
         << " result_msg = " << m_resultStr
+        << " body = " << m_body
         << " body.length = " << m_body.size()
         << "]";
     return ss.str();
@@ -111,6 +113,7 @@ bool RockResponse::parseFromByteArray(ByteArray::ptr ba) {
 std::string RockNotify::toString() const {
     std::stringstream ss;
     ss << "[RockNotify m_notify = " << m_notify
+       << " body = " << m_body
        << " body.length = " << m_body.size()
        << "]";
     return ss.str();
@@ -155,7 +158,21 @@ RockMsgHeader::RockMsgHeader()
     , version(0x01)
     , flag(0)
     , length(0) {
+    SEAICE_LOG_DEBUG(logger) << "rock msg header contructor";
+}
 
+std::string RockMsgHeader::toString() {
+    std::stringstream ss;
+    ss << "RockMsgHeader[magic=";
+    for(auto& i : magic) {
+        ss << "0x" << std::hex << unsigned(i) << ",";
+    }
+    ss  << std::dec
+        << "version="  << unsigned(version)
+        << ",flag=" << +flag
+        << ",length=" << length
+        << " ]";
+    return ss.str();
 }
 
 static const uint8_t s_rock_magic[2] = {0xab, 0xcd};
@@ -201,6 +218,12 @@ Message::ptr RockMessageDecoder::parseFrom(Stream::ptr stream) {
             return nullptr;
         }
 
+        SEAICE_LOG_DEBUG(logger) << "header size = " << sizeof(header)
+            << " header body = " << header.toString();
+        //header.length = seaice::byteswapOnLittleEndian(header.length);
+        //SEAICE_LOG_DEBUG(logger) << "header size = " << sizeof(header)
+        //    << " header body = " << header.toString();
+
         seaice::ByteArray::ptr ba(new seaice::ByteArray);
         if(stream->readFixSize(ba, header.length) <= 0) {
             SEAICE_LOG_ERROR(logger) << "RockMessageDecoder read body fail len = "
@@ -210,18 +233,21 @@ Message::ptr RockMessageDecoder::parseFrom(Stream::ptr stream) {
 
         ba->setPos(0);
         if(header.flag & 0x01) {
-            auto zstream = seaice::ZlibStream::CreateGzip(false);
-            if(zstream->write(ba, ba->getSize()) != Z_OK) {
-                SEAICE_LOG_ERROR(logger) << "RockMessageDecoder ungzip error";
-                return nullptr;
+            if(header.length >= g_rock_protocol_min_length->getValue()) {
+                auto zstream = seaice::ZlibStream::CreateGzip(false);
+                if(zstream->write(ba, ba->getSize()) != Z_OK) {
+                    SEAICE_LOG_ERROR(logger) << "RockMessageDecoder ungzip error";
+                    return nullptr;
+                }
+                if(zstream->flush() != Z_OK) {
+                    SEAICE_LOG_ERROR(logger) << "RockMessageDecoder ungzip flush error";
+                    return nullptr;
+                }
+                ba = zstream->getByteArray();
             }
-            if(zstream->flush() != Z_OK) {
-                SEAICE_LOG_ERROR(logger) << "RockMessageDecoder ungzip flush error";
-                return nullptr;
-            }
-            ba = zstream->getByteArray();
         }
         uint8_t type = ba->readFuint8();
+        SEAICE_LOG_DEBUG(logger) << "type = " << unsigned(type);
         Message::ptr msg;
         switch(type) {
             case Message::REQUEST:
@@ -270,11 +296,14 @@ int32_t RockMessageDecoder::serializeTo(Stream::ptr stream, Message::ptr msg) {
         header.flag |= 0x01;
         header.length = ba->getSize();
     }
+    SEAICE_LOG_DEBUG(logger) << "header size = " << sizeof(header)
+        << " header body = " << header.toString();
     header.length = seaice::byteswapOnLittleEndian(header.length);
     if(stream->writeFixSize(&header, sizeof(header)) <= 0) {
         SEAICE_LOG_ERROR(logger) << "RockMessageDecoder serializeTo write header fail";
         return -3;
     }
+    SEAICE_LOG_DEBUG(logger) << "msg = " << msg->toString();
     if(stream->writeFixSize(ba, ba->getReadSize()) <= 0) {
         SEAICE_LOG_ERROR(logger) << "RockMessageDecoder serializeTo write body fail";
         return -4;

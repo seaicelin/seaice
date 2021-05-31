@@ -15,7 +15,7 @@ public:
              , IOManager* io_worker = IOManager::GetThis());
     ~RockConnection();
 
-    static RockConnection::ptr Create(const std::string& url, uint64_t timeout_ms);
+    static RockConnection::ptr Create(const std::string& url, uint64_t timeout_ms = -1);
 };
 
 }
