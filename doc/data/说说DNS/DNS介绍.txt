@@ -1,0 +1,131 @@
+## 什么是DNS
+
+DNS 是 Domain Network System(网络域名系统)的缩写，主要作用是在域名和IP地址之间建立一种映射，也就是根据域名查出IP地址。
+你可以把DNS的功能想象成一个电话本，电话本里面人名映射到相应的电话号码。在DNS中，人名就是域名，电话号码就是IP地址。
+域名系统的管理由DNS服务器来完成。全球范围内的DNS服务器共同构成了一个分布式的域名-IP数据库。
+
+程序使用DNS来查询地址一般分为两个步骤：
+
+- 程序向DNS服务器发起请求，获取域名对应的IP地址。
+- DNS服务器根据DNS解析规则解析并得到该域名对应的IP地址，返回给客户端程序。
+
+在DNS中，每一个域名和IP的对应关系被称之为一条记录。客户端一般会缓存这条记录以备后续使用。
+
+## DNS 架构
+
+一个普通网址，www.bing.com 完整的域名地址其实是 www.bing.com. 
+因为根域名 . 对所有域名都是一样的，所以通常都是省略。它对应的层次如下：
+主机名.次级域名.顶级域名.根域名
+
+## 查询的方式
+
+两类
+
+- 递归查询
+
+递归查询是一种DNS 服务器的查询模式，在该模式下DNS 服务器接收到客户机请求，必须使用一个准确的查询结果回复客户机。如果DNS 服务器本地没有存储查询DNS 信息，那么本地服务器就会成为DNS中的一台客户机，并向上级域名服务器发出查询请求，这种过程将持续到找到具有相关信息的域名服务器为止，然后将返回的查询结果提交给客户机。
+过程中如果没有找到查询结果，重复递归上述操作直至根域名服务器，根域名服务器收到DNS请求后，把所查询得到的所请求的DNS域名中发送给顶级域名服务器，让顶级域名服务器去往下级域名服务器请求查找，如果找到了就原路返回。某域名服务器-->...->顶级域名服务器-->根域名服务器-->下一级域名服务器-->...-->本地域名服务器-->客户机。如果没有找到就报错，表示无法查询到相关信息。
+
+- 迭代查询
+
+DNS服务器另外一种查询方式为迭代查询，DNS服务器会向客户机提供其他能够解析查询请求的DNS服务器地址，当客户机发送查询请求时，DNS服务器并不直接回复查询结果，而是告诉客户机另一台DNS 服务器地址，客户机再向这台DNS服务器提交请求，依次循环直到返回查询的结果为止。
+
+这两种查询中，递归是优于迭代的，因为迭代只有客户机和域名服务器之间的操作，而递归是除了客户机和域名服务器之间的操作，还涉及域名服务器之间的操作。
+
+## nslookup(cache, root)
+
+命令一， 通过命令行查询域名的IP地址，显示DNS服务器地址和域名IP地址
+nslookup www.baidu.com 
+
+命令二，通过 ipconfig /displaydns 
+显示DNS的本地换缓存记录
+
+
+
+## when we use DNS
+
+1. 手机attch到网络时，会更新DNS服务器地址。
+2. APP调用 getaddrinfo 接口时
+
+对于软件开发者来说，常用的域名解析 socket api 有两个：
+- getaddrinfo: 他根据指定的host或service名来得到对应的IP地址。
+- getnameinfo: 根据指定的IP地址得到对应的host或service的名称。
+
+Android DNS的查找操作主要在netd守护进程中，以便进行系统级缓存，应用查询时调用Bionic的函数(如getaddrinfo)。查询通过UNIX套接字发送到
+/dev/socket/dnsproxyd,再到netd守护进程，然后解析请求并再次调用getaddrinfo用于发出DNS查找请求，然后缓存结果供以后使用。
+
+
+
+## dns 代码路径和配置文件等
+DNS解析器实现主要包含在bionic/libc/dns中，部分包含在system/netd/server/dns中。
+
+代码路径/Cinamon/vendor/partner_modules_prep/DnsResolver/
+
+DNS服务器的配置文件: /system/etc/resolv.conf
+在Android系统中，/etc目录实际上为/system/etc目录的链接。resolv.conf存储的是DNS服务器的IP地址。
+
+系统属性中保存了一些DNS服务器的地址，它们通过诸如"net.dns1"或"net.dns2"之类的属性来表达。
+每个进程还可以设置进程特定的DNS服务器地址。它们通过诸如"net.dns1."或"net.dns2."的系统属性来表达。
+不同的网络设备也有对应的DNS服务器地址，例如通过wlan接口发起的网络操作，其对应的DNS服务器由系统属性“net.wlan.dns1”表示。
+
+
+
+## getaddrinfo uml
+
+
+## getaddrinfo block diagram
+
+
+## type of dns header
+
+http://c.biancheng.net/view/6457.html
+
+
+
+## query, response case
+
+
+05-04 15:16:40.158   524  1149 D DnsProxyListener: DNSDBG::dns addrinfo(config.rcs.mnc780.mcc302.pub.3gppnetwork.org) af 2
+05-04 15:16:40.165   524 11555 D DnsProxyListener: GetAddrInfoHandler, now for config.rcs.mnc780.mcc302.pub.3gppnetwork.org / (null) / {601,787033,601,983641,1000,0,1774}
+05-04 15:16:40.172   524 11555 D DnsProxyListener: DNS failed (1000, 1774, config.rcs.mnc780.mcc302.pub.3gppnetwork.org) : No address associated with hostname
+
+什么是A记录，什么是CNAME?
+A记录是将域名解析成IP，CNAME是将域名解析成另外一个域名。
+https://zhuanlan.zhihu.com/p/400556541
+
+P191231-00400
+
+## LG(UDP,TCP) case
+
+
+
+
+## UDP TCP length analyze
+
+DNS同时占用UDP和TCP端口53是公认的，DNS在进行区域传输或者响应报文超过512字节的时候使用TCP协议，其它时候则使用UDP协议。
+客户端向DNS服务器查询域名，一般返回的内容都不超过512字节，用UDP传输即可。不用经过TCP三次握手，这样DNS服务器负载更低，响应更快。
+确定下512字节指的是哪部分，阅读RFC1035，有这段描述
+Messages carried by UDP are restricted to 512 bytes (not counting the IP or UDP headers). Longer messages are truncated and the TC bit is set in the header.
+
+
+为什么既使用TCP又使用UDP？ 
+DNS报文分为请求报文和响应报文，如果响应报文是超过512字节的，那么就使用TCP，不大于512字节就使用UDP，这个是根据响应报文的长度来决定使用TCP还是UDP的。
+
+那么什么时候用TCP呢？
+前面介绍过一个TC位，当DNS发出一个查询请求，并且返回响应中的TC位为1，说明该DNS响应长度超过512字节，后面的响应有缺失，因此此时需要利用TCP进行重传。TCP可以分段传输任意长度的报文。
+
+- 局域网的情况下，MTU是1500字节，除去IPv4首部20字节，IP数据报的数据区是1480字节。
+所以局域网下UDP的数据控制在 1480 - 8(UDP首部) = 1472字节。
+
+- Internet上的标准MTU值为576字节，UDP协议应用在被设计时，数据包大小会被限制在internet标准MTU 576字节以下（有效数据则只有576-20(ipv4 header)-8(UDP header)=548）。
+而DNS报文内容长度被限制在512字节以下（RFC1035）,当长度超过512字节时，可以使用TCP 传输。
+
+
+
+
+## what is NameServer
+
+DNS的全称是Domain Name System, 很多人会误以为是Domain Name Server. DNS是一套系统, 负责将域名与IP地址相对应起来.
+NameServer负责实现DNS这套系统的服务器, 有时候也叫做DNS Server, 这也是为什么许多人会将NameServer同DNS搞混起来的原因.
+
+## code review
